@@ -1,8 +1,10 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
+import { useState } from "react";
 import { Calendar, CheckSquare, StickyNote, TrendingUp, FolderKanban, LayoutDashboard, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import GlobalSearch from "@/components/GlobalSearch";
 
 const navigation = [
   { name: "Дашборд", href: "/", icon: LayoutDashboard },
@@ -15,6 +17,7 @@ const navigation = [
 
 export default function Layout() {
   const location = useLocation();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-gradient-subtle">
@@ -28,11 +31,15 @@ export default function Layout() {
         </div>
 
         <div className="px-4 mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div 
+            className="relative cursor-pointer"
+            onClick={() => setIsSearchOpen(true)}
+          >
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input 
-              placeholder="Поиск по тегам..." 
-              className="pl-9 bg-sidebar-accent border-sidebar-border"
+              placeholder="Поиск везде... (Ctrl+K)" 
+              className="pl-9 bg-sidebar-accent border-sidebar-border cursor-pointer"
+              readOnly
             />
           </div>
         </div>
@@ -68,6 +75,9 @@ export default function Layout() {
       <main className="flex-1 overflow-auto">
         <Outlet />
       </main>
+
+      {/* Global Search Dialog */}
+      <GlobalSearch open={isSearchOpen} onOpenChange={setIsSearchOpen} />
     </div>
   );
 }
