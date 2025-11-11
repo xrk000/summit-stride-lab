@@ -1,15 +1,59 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, CheckSquare, TrendingUp, Clock, Plus, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar, CheckSquare, TrendingUp, Clock, Plus, AlertCircle, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type Task = {
+  id: number;
+  title: string;
+  priority: "high" | "medium" | "low";
+  deadline: string;
+  completed: boolean;
+  project?: string;
+  description?: string;
+};
 
 export default function Dashboard() {
-  const todayTasks = [
-    { id: 1, title: "Подготовить презентацию", priority: "high", deadline: "14:00", completed: false },
-    { id: 2, title: "Созвон с командой", priority: "medium", deadline: "16:30", completed: true },
-    { id: 3, title: "Обзор кода", priority: "low", deadline: "18:00", completed: false },
-  ];
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [todayTasks, setTodayTasks] = useState<Task[]>([
+    { id: 1, title: "Подготовить презентацию", priority: "high", deadline: "14:00", completed: false, project: "Работа", description: "Презентация для клиента" },
+    { id: 2, title: "Созвон с командой", priority: "medium", deadline: "16:30", completed: true, project: "Работа", description: "Обсуждение спринта" },
+    { id: 3, title: "Обзор кода", priority: "low", deadline: "18:00", completed: false, project: "Проект А", description: "Проверить PR" },
+  ]);
+
+  const handleAddTask = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newTask: Task = {
+      id: Math.max(0, ...todayTasks.map(t => t.id)) + 1,
+      title: formData.get("title") as string,
+      project: formData.get("project") as string,
+      priority: formData.get("priority") as "high" | "medium" | "low",
+      deadline: formData.get("deadline") as string,
+      completed: false,
+      description: formData.get("description") as string,
+    };
+    setTodayTasks([...todayTasks, newTask]);
+    setIsDialogOpen(false);
+    e.currentTarget.reset();
+  };
+
+  const toggleTaskStatus = (taskId: number) => {
+    setTodayTasks(todayTasks.map(task => 
+      task.id === taskId 
+        ? { ...task, completed: !task.completed }
+        : task
+    ));
+  };
 
   const upcomingEvents = [
     { id: 1, title: "Встреча с клиентом", time: "Завтра, 10:00", type: "meeting" },
@@ -43,8 +87,10 @@ export default function Dashboard() {
             <CheckSquare className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">5</div>
-            <p className="text-xs text-muted-foreground mt-1">2 выполнено</p>
+            <div className="text-3xl font-bold">{todayTasks.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {todayTasks.filter(t => t.completed).length} выполнено
+            </p>
           </CardContent>
         </Card>
 
@@ -88,27 +134,74 @@ export default function Dashboard() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl">Задачи на сегодня</CardTitle>
-              <Button size="sm" className="bg-primary">
-                <Plus className="h-4 w-4 mr-1" />
-                Добавить
-              </Button>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-primary">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Добавить
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Новая задача</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleAddTask} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="title">Название</Label>
+                      <Input id="title" name="title" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="project">Проект</Label>
+                      <Input id="project" name="project" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="priority">Приоритет</Label>
+                      <Select name="priority" required>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Выберите приоритет" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="high">Высокий</SelectItem>
+                          <SelectItem value="medium">Средний</SelectItem>
+                          <SelectItem value="low">Низкий</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="deadline">Время дедлайна</Label>
+                      <Input id="deadline" name="deadline" type="time" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Описание</Label>
+                      <Textarea id="description" name="description" />
+                    </div>
+                    <Button type="submit" className="w-full">Добавить</Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
             {todayTasks.map((task) => (
               <div
                 key={task.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                className={cn(
+                  "flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors",
+                  task.completed && "opacity-60"
+                )}
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-1">
                   <input
                     type="checkbox"
                     checked={task.completed}
-                    className="h-5 w-5 rounded border-border"
-                    readOnly
+                    onChange={() => toggleTaskStatus(task.id)}
+                    className="h-5 w-5 rounded border-border cursor-pointer"
                   />
-                  <div>
-                    <p className={task.completed ? "line-through text-muted-foreground" : ""}>
+                  <div className="flex-1">
+                    <p className={cn(
+                      "font-medium",
+                      task.completed && "line-through text-muted-foreground"
+                    )}>
                       {task.title}
                     </p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
@@ -117,17 +210,26 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
-                <Badge
-                  variant={
-                    task.priority === "high"
-                      ? "destructive"
-                      : task.priority === "medium"
-                      ? "default"
-                      : "secondary"
-                  }
-                >
-                  {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      task.priority === "high"
+                        ? "destructive"
+                        : task.priority === "medium"
+                        ? "default"
+                        : "secondary"
+                    }
+                  >
+                    {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedTask(task)}
+                  >
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </Button>
+                </div>
               </div>
             ))}
           </CardContent>
@@ -181,6 +283,39 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Task Detail Dialog */}
+      <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedTask?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Проект</Label>
+              <p className="text-sm mt-1">{selectedTask?.project}</p>
+            </div>
+            <div>
+              <Label>Приоритет</Label>
+              <p className="text-sm mt-1">
+                {selectedTask?.priority === "high" ? "Высокий" : selectedTask?.priority === "medium" ? "Средний" : "Низкий"}
+              </p>
+            </div>
+            <div>
+              <Label>Дедлайн</Label>
+              <p className="text-sm mt-1">{selectedTask?.deadline}</p>
+            </div>
+            <div>
+              <Label>Описание</Label>
+              <p className="text-sm mt-1">{selectedTask?.description || "Нет описания"}</p>
+            </div>
+            <div>
+              <Label>Статус</Label>
+              <p className="text-sm mt-1">{selectedTask?.completed ? "Выполнена" : "Активна"}</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
