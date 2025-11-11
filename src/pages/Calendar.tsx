@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Search } from "lucide-react";
 
 type Event = {
   id: number;
@@ -23,6 +23,7 @@ export default function Calendar() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [events, setEvents] = useState<Event[]>([
     { id: 1, time: "09:00", title: "Утренняя планерка", type: "meeting", color: "primary" },
     { id: 2, time: "14:00", title: "Презентация проекта", type: "task", color: "warning" },
@@ -72,6 +73,14 @@ export default function Calendar() {
     setEvents(events.filter(event => event.id !== eventId));
     setDeletingEventId(null);
   };
+
+  const filteredEvents = events.filter((event) => {
+    if (!searchQuery) return true;
+    return event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      event.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (event.description && event.description.toLowerCase().includes(searchQuery.toLowerCase()));
+  });
+
   const days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
   const currentMonth = "Ноябрь 2024";
 
@@ -136,6 +145,17 @@ export default function Calendar() {
             </form>
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input 
+          placeholder="Поиск событий..." 
+          className="pl-9"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -218,7 +238,7 @@ export default function Calendar() {
             <CardTitle className="text-xl">Сегодня</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {events.map((event) => (
+            {filteredEvents.map((event) => (
               <div
                 key={event.id}
                 className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors space-y-2"

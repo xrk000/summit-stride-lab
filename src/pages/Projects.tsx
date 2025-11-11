@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, FolderKanban, Clock, CheckCircle2, AlertCircle, Pencil, Trash2 } from "lucide-react";
+import { Plus, FolderKanban, Clock, CheckCircle2, AlertCircle, Pencil, Trash2, Search } from "lucide-react";
 
 type Project = {
   id: number;
@@ -23,6 +23,15 @@ type Project = {
   timeSpent: string;
   priority: "high" | "medium" | "low";
   tags: string[];
+  taskIds?: number[];
+};
+
+type Task = {
+  id: number;
+  title: string;
+  priority: "high" | "medium" | "low";
+  status: "active" | "completed";
+  deadline: string;
 };
 
 export default function Projects() {
@@ -30,6 +39,18 @@ export default function Projects() {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
+  const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
+  const [selectedProjectForTasks, setSelectedProjectForTasks] = useState<Project | null>(null);
+
+  // Моковые существующие задачи
+  const [allTasks] = useState<Task[]>([
+    { id: 1, title: "Написать отчет", priority: "high", status: "active", deadline: "2024-11-15" },
+    { id: 2, title: "Обновить документацию", priority: "medium", status: "active", deadline: "2024-11-16" },
+    { id: 3, title: "Код ревью", priority: "low", status: "completed", deadline: "2024-11-10" },
+    { id: 4, title: "Купить продукты", priority: "medium", status: "active", deadline: "2024-11-15" },
+  ]);
   const [projects, setProjects] = useState<Project[]>([
     {
       id: 1,
@@ -43,6 +64,7 @@ export default function Projects() {
       timeSpent: "24ч 30м",
       priority: "high",
       tags: ["учеба", "разработка"],
+      taskIds: [],
     },
     {
       id: 2,
@@ -56,6 +78,7 @@ export default function Projects() {
       timeSpent: "42ч 15м",
       priority: "high",
       tags: ["работа", "frontend"],
+      taskIds: [2],
     },
     {
       id: 3,
@@ -69,6 +92,7 @@ export default function Projects() {
       timeSpent: "5ч 45м",
       priority: "low",
       tags: ["личное", "portfolio"],
+      taskIds: [],
     },
   ]);
 
@@ -119,6 +143,34 @@ export default function Projects() {
   const handleDeleteProject = (projectId: number) => {
     setProjects(projects.filter(project => project.id !== projectId));
     setDeletingProjectId(null);
+  };
+
+  const handleAddExistingTask = (taskId: number) => {
+    if (selectedProjectForTasks) {
+      setProjects(projects.map(project => 
+        project.id === selectedProjectForTasks.id
+          ? { ...project, taskIds: [...(project.taskIds || []), taskId] }
+          : project
+      ));
+      setIsAddTaskDialogOpen(false);
+    }
+  };
+
+  const handleCreateNewTask = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    // В реальном приложении здесь создавалась бы новая задача
+    setIsCreateTaskDialogOpen(false);
+  };
+
+  const filteredProjects = projects.filter((project) => {
+    if (!searchQuery) return true;
+    return project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+  });
+
+  const getProjectTasks = (project: Project) => {
+    return allTasks.filter(task => project.taskIds?.includes(task.id));
   };
 
   return (
@@ -185,6 +237,17 @@ export default function Projects() {
         </Dialog>
       </div>
 
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input 
+          placeholder="Поиск проектов..." 
+          className="pl-9"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="shadow-md">
@@ -242,7 +305,7 @@ export default function Projects() {
 
       {/* Projects List */}
       <div className="space-y-4">
-        {projects.map((project) => (
+        {filteredProjects.map((project) => (
           <Card key={project.id} className="shadow-md hover:shadow-lg transition-all">
             <CardHeader>
               <div className="flex items-start justify-between">
@@ -317,6 +380,17 @@ export default function Projects() {
               </div>
 
               <div className="flex gap-2 pt-2">
+                <Button 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    setSelectedProjectForTasks(project);
+                    setIsAddTaskDialogOpen(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Добавить задачу
+                </Button>
                 <Button 
                   variant="outline" 
                   className="flex-1"
@@ -399,7 +473,113 @@ export default function Projects() {
                 ))}
               </div>
             </div>
+            <div>
+              <Label>Задачи в проекте</Label>
+              <div className="space-y-2 mt-2">
+                {selectedProject && getProjectTasks(selectedProject).length > 0 ? (
+                  getProjectTasks(selectedProject).map((task) => (
+                    <div key={task.id} className="p-2 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{task.title}</span>
+                        <Badge variant={task.status === "completed" ? "outline" : "default"} className="text-xs">
+                          {task.status === "completed" ? "Выполнена" : "Активна"}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">Задач нет</p>
+                )}
+              </div>
+            </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Existing Task Dialog */}
+      <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Добавить задачу в проект</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => {
+                  setIsAddTaskDialogOpen(false);
+                  setIsCreateTaskDialogOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Создать новую задачу
+              </Button>
+            </div>
+            <div className="border-t pt-4">
+              <Label>Выберите существующую задачу</Label>
+              <div className="space-y-2 mt-2 max-h-60 overflow-y-auto">
+                {allTasks
+                  .filter(task => !selectedProjectForTasks?.taskIds?.includes(task.id))
+                  .map((task) => (
+                    <div 
+                      key={task.id} 
+                      className="p-3 border rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                      onClick={() => handleAddExistingTask(task.id)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{task.title}</p>
+                          <p className="text-xs text-muted-foreground">Дедлайн: {task.deadline}</p>
+                        </div>
+                        <Badge variant={task.priority === "high" ? "destructive" : "outline"} className="text-xs">
+                          {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create New Task Dialog */}
+      <Dialog open={isCreateTaskDialogOpen} onOpenChange={setIsCreateTaskDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Создать задачу в проекте "{selectedProjectForTasks?.name}"</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCreateNewTask} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="taskTitle">Название задачи</Label>
+              <Input id="taskTitle" name="taskTitle" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="taskPriority">Приоритет</Label>
+              <Select name="taskPriority" defaultValue="medium" required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите приоритет" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">Высокий</SelectItem>
+                  <SelectItem value="medium">Средний</SelectItem>
+                  <SelectItem value="low">Низкий</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="taskDeadline">Дедлайн</Label>
+              <Input id="taskDeadline" name="taskDeadline" type="date" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="taskDescription">Описание</Label>
+              <Textarea id="taskDescription" name="taskDescription" />
+            </div>
+            <Button type="submit" className="w-full">
+              Создать задачу
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
 

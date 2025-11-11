@@ -14,7 +14,8 @@ import { cn } from "@/lib/utils";
 type Task = {
   id: number;
   title: string;
-  project: string;
+  project?: string;
+  projectId?: number;
   priority: "high" | "medium" | "low";
   status: "active" | "completed";
   deadline: string;
@@ -27,16 +28,27 @@ export default function Tasks() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  // Моковые проекты для выбора
+  const availableProjects = [
+    { id: 1, name: "Дипломная работа" },
+    { id: 2, name: "Проект А" },
+    { id: 3, name: "Личный сайт" },
+  ];
+
   const [tasks, setTasks] = useState<Task[]>([
-    { id: 1, title: "Написать отчет", project: "Работа", priority: "high", status: "active", deadline: "Сегодня", description: "Подготовить квартальный отчет" },
-    { id: 2, title: "Обновить документацию", project: "Проект А", priority: "medium", status: "active", deadline: "Завтра", description: "Обновить README и API документацию" },
-    { id: 3, title: "Код ревью", project: "Работа", priority: "low", status: "completed", deadline: "Вчера", description: "Проверить PR от коллеги" },
-    { id: 4, title: "Купить продукты", project: "Личное", priority: "medium", status: "active", deadline: "Сегодня", description: "Молоко, хлеб, яйца" },
+    { id: 1, title: "Написать отчет", project: "Работа", priority: "high", status: "active", deadline: "2024-11-15", description: "Подготовить квартальный отчет" },
+    { id: 2, title: "Обновить документацию", project: "Проект А", projectId: 2, priority: "medium", status: "active", deadline: "2024-11-16", description: "Обновить README и API документацию" },
+    { id: 3, title: "Код ревью", project: "Работа", priority: "low", status: "completed", deadline: "2024-11-10", description: "Проверить PR от коллеги" },
+    { id: 4, title: "Купить продукты", priority: "medium", status: "active", deadline: "2024-11-15", description: "Молоко, хлеб, яйца" },
   ]);
 
   const handleAddTask = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const projectIdValue = formData.get("projectId") as string;
+    const projectId = projectIdValue ? parseInt(projectIdValue) : undefined;
+    const selectedProject = projectId ? availableProjects.find(p => p.id === projectId) : undefined;
     
     if (editingTask) {
       setTasks(tasks.map(task =>
@@ -44,7 +56,8 @@ export default function Tasks() {
           ? {
               ...task,
               title: formData.get("title") as string,
-              project: formData.get("project") as string,
+              project: selectedProject?.name,
+              projectId: projectId,
               priority: formData.get("priority") as "high" | "medium" | "low",
               deadline: formData.get("deadline") as string,
               description: formData.get("description") as string,
@@ -56,7 +69,8 @@ export default function Tasks() {
       const newTask: Task = {
         id: Math.max(0, ...tasks.map(t => t.id)) + 1,
         title: formData.get("title") as string,
-        project: formData.get("project") as string,
+        project: selectedProject?.name,
+        projectId: projectId,
         priority: formData.get("priority") as "high" | "medium" | "low",
         status: "active",
         deadline: formData.get("deadline") as string,
@@ -87,8 +101,12 @@ export default function Tasks() {
   };
 
   const filteredTasks = tasks.filter((task) => {
-    if (filter === "all") return true;
-    return task.status === filter;
+    const matchesFilter = filter === "all" || task.status === filter;
+    const matchesSearch = !searchQuery || 
+      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (task.project && task.project.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesFilter && matchesSearch;
   });
 
   return (
@@ -118,8 +136,20 @@ export default function Tasks() {
                 <Input id="title" name="title" defaultValue={editingTask?.title} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="project">Проект</Label>
-                <Input id="project" name="project" defaultValue={editingTask?.project} required />
+                <Label htmlFor="projectId">Проект (необязательно)</Label>
+                <Select name="projectId" defaultValue={editingTask?.projectId?.toString()}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Без проекта" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Без проекта</SelectItem>
+                    {availableProjects.map(project => (
+                      <SelectItem key={project.id} value={project.id.toString()}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="priority">Приоритет</Label>
@@ -153,7 +183,12 @@ export default function Tasks() {
       <div className="flex items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Поиск задач..." className="pl-9" />
+          <Input 
+            placeholder="Поиск задач..." 
+            className="pl-9" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
         <div className="flex gap-2">
           <Button
@@ -208,9 +243,11 @@ export default function Tasks() {
                       {task.title}
                     </h3>
                     <div className="flex items-center gap-3 mt-1">
-                      <Badge variant="outline" className="text-xs">
-                        {task.project}
-                      </Badge>
+                      {task.project && (
+                        <Badge variant="outline" className="text-xs">
+                          {task.project}
+                        </Badge>
+                      )}
                       <span className="text-xs text-muted-foreground">{task.deadline}</span>
                     </div>
                   </div>
@@ -263,10 +300,12 @@ export default function Tasks() {
             <DialogTitle>{selectedTask?.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Проект</Label>
-              <p className="text-sm mt-1">{selectedTask?.project}</p>
-            </div>
+            {selectedTask?.project && (
+              <div>
+                <Label>Проект</Label>
+                <p className="text-sm mt-1">{selectedTask?.project}</p>
+              </div>
+            )}
             <div>
               <Label>Приоритет</Label>
               <p className="text-sm mt-1">

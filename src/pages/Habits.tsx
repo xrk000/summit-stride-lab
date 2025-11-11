@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, TrendingUp, Calendar, Check, Pencil, Trash2 } from "lucide-react";
+import { Plus, TrendingUp, Calendar, Check, Pencil, Trash2, Search } from "lucide-react";
 
 type Habit = {
   id: number;
@@ -26,6 +26,7 @@ export default function Habits() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [deletingHabitId, setDeletingHabitId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [habits, setHabits] = useState<Habit[]>([
     {
       id: 1,
@@ -133,6 +134,13 @@ export default function Habits() {
     }));
   };
 
+  const filteredHabits = habits.filter((habit) => {
+    if (!searchQuery) return true;
+    return habit.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      habit.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      habit.category.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
   return (
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -196,6 +204,17 @@ export default function Habits() {
         </Dialog>
       </div>
 
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input 
+          placeholder="Поиск привычек..." 
+          className="pl-9"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
       {/* Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="shadow-elegant">
@@ -234,7 +253,7 @@ export default function Habits() {
 
       {/* Habits List */}
       <div className="space-y-4">
-        {habits.map((habit) => (
+        {filteredHabits.map((habit) => (
           <Card key={habit.id} className="shadow-md hover:shadow-lg transition-shadow">
             <CardContent className="p-6">
               <div className="space-y-4">

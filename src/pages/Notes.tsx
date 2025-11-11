@@ -25,6 +25,7 @@ export default function Notes() {
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const templates = [
     { id: 1, name: "Конспект лекций", icon: "📝", color: "primary", template: "Тема:\n\nОсновные пункты:\n1. \n2. \n3. \n\nВыводы:" },
@@ -121,6 +122,14 @@ export default function Notes() {
     totalWords: 3421,
     popularTags: ["работа", "учеба", "личное"],
   };
+
+  const filteredNotes = notes.filter((note) => {
+    if (!searchQuery) return true;
+    return note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      note.preview.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      note.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()));
+  });
 
   return (
     <div className="p-8 space-y-6">
@@ -243,12 +252,17 @@ export default function Notes() {
       {/* Search */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Поиск по заметкам и тегам..." className="pl-9" />
+        <Input 
+          placeholder="Поиск по заметкам и тегам..." 
+          className="pl-9"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
       </div>
 
       {/* Notes List */}
       <div className="space-y-3">
-        {notes.map((note) => (
+        {filteredNotes.map((note) => (
           <Card 
             key={note.id} 
             className="shadow-md hover:shadow-lg transition-all"
