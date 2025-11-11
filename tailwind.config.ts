@@ -67,13 +67,20 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
+      fontFamily: {
+        'sans': ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        'display': ['Sora', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+      },
       backgroundImage: {
         'gradient-primary': 'var(--gradient-primary)',
         'gradient-secondary': 'var(--gradient-secondary)',
+        'gradient-accent': 'var(--gradient-accent)',
         'gradient-subtle': 'var(--gradient-subtle)',
+        'gradient-mesh': 'var(--gradient-mesh)',
       },
       boxShadow: {
         'elegant': 'var(--shadow-elegant)',
+        'glow': 'var(--shadow-glow)',
       },
       borderRadius: {
         lg: "var(--radius)",

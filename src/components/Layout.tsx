@@ -22,26 +22,22 @@ export default function Layout() {
   return (
     <div className="flex h-screen bg-gradient-subtle">
       {/* Sidebar */}
-      <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-        <div className="p-6">
-          <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+      <aside className="w-64 bg-gradient-to-b from-card to-background border-r border-border shadow-lg flex flex-col">
+        <div className="p-6 border-b border-border">
+          <h1 className="text-2xl font-display font-bold bg-gradient-primary bg-clip-text text-transparent">
             ProductiveMe
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Управление продуктивностью</p>
+          <p className="text-xs text-muted-foreground mt-1">Ваша продуктивность</p>
         </div>
 
         <div className="px-4 mb-4">
-          <div 
-            className="relative cursor-pointer"
+          <button 
+            className="w-full flex items-center gap-2 px-4 py-2.5 bg-muted/50 hover:bg-muted text-muted-foreground rounded-lg transition-all hover:shadow-md group cursor-pointer"
             onClick={() => setIsSearchOpen(true)}
           >
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <Input 
-              placeholder="Поиск везде... (Ctrl+K)" 
-              className="pl-9 bg-sidebar-accent border-sidebar-border cursor-pointer"
-              readOnly
-            />
-          </div>
+            <Search className="h-4 w-4 group-hover:text-primary transition-colors" />
+            <span className="text-sm">Поиск...</span>
+          </button>
         </div>
 
         <nav className="flex-1 px-3 space-y-1">
@@ -50,10 +46,12 @@ export default function Layout() {
             return (
               <Link key={item.name} to={item.href}>
                 <Button
-                  variant={isActive ? "default" : "ghost"}
+                  variant="ghost"
                   className={cn(
-                    "w-full justify-start",
-                    isActive && "bg-primary text-primary-foreground shadow-md"
+                    "w-full justify-start transition-all duration-200",
+                    isActive 
+                      ? "bg-gradient-primary text-white shadow-glow font-medium hover:bg-gradient-primary" 
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                   )}
                 >
                   <item.icon className="mr-3 h-5 w-5" />

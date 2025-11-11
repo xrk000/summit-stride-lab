@@ -24,6 +24,8 @@ export default function Calendar() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedDay, setSelectedDay] = useState<number>(11); // Текущий выбранный день
+
   const [events, setEvents] = useState<Event[]>([
     { id: 1, time: "09:00", title: "Утренняя планерка", type: "meeting", color: "primary" },
     { id: 2, time: "14:00", title: "Презентация проекта", type: "task", color: "warning" },
@@ -186,15 +188,16 @@ export default function Calendar() {
               {calendarDays.map((item, i) => (
                 <button
                   key={i}
+                  onClick={() => item.day && setSelectedDay(item.day)}
                   className={`
                     aspect-square rounded-lg p-2 relative transition-all
-                    ${item.day ? "hover:bg-muted" : "cursor-default"}
-                    ${item.day === 11 ? "bg-primary text-primary-foreground font-bold" : ""}
+                    ${item.day ? "hover:bg-muted cursor-pointer" : "cursor-default"}
+                    ${item.day === selectedDay ? "bg-primary text-primary-foreground font-bold ring-2 ring-primary ring-offset-2" : ""}
                   `}
                   style={{
                     backgroundColor:
-                      item.day && item.day !== 11 && item.intensity > 0
-                        ? `hsl(195, 90%, ${95 - item.intensity * 0.5}%)`
+                      item.day && item.day !== selectedDay && item.intensity > 0
+                        ? `hsl(262, 83%, ${95 - item.intensity * 0.5}%)`
                         : undefined,
                   }}
                 >
@@ -222,7 +225,7 @@ export default function Calendar() {
                     <div
                       key={intensity}
                       className="w-4 h-4 rounded"
-                      style={{ backgroundColor: `hsl(195, 90%, ${95 - intensity * 0.5}%)` }}
+                      style={{ backgroundColor: `hsl(262, 83%, ${95 - intensity * 0.5}%)` }}
                     />
                   ))}
                 </div>
@@ -235,7 +238,7 @@ export default function Calendar() {
         {/* Today's Schedule */}
         <Card className="shadow-md">
           <CardHeader>
-            <CardTitle className="text-xl">Сегодня</CardTitle>
+            <CardTitle className="text-xl font-display">День {selectedDay}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {filteredEvents.map((event) => (

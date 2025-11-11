@@ -37,6 +37,7 @@ type Task = {
 export default function Projects() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -421,41 +422,41 @@ export default function Projects() {
 
       {/* Project Detail Dialog */}
       <Dialog open={!!selectedProject} onOpenChange={() => setSelectedProject(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedProject?.name}</DialogTitle>
+            <DialogTitle className="text-2xl font-display">{selectedProject?.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div>
-              <Label>Описание</Label>
-              <p className="text-sm mt-1">{selectedProject?.description}</p>
+              <Label className="text-base font-semibold">Описание</Label>
+              <p className="text-sm mt-2">{selectedProject?.description}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Статус</Label>
+                <Label className="text-sm font-semibold">Статус</Label>
                 <p className="text-sm mt-1">
                   {selectedProject?.status === "active" ? "Активный" : 
                    selectedProject?.status === "completed" ? "Завершен" : "Планирование"}
                 </p>
               </div>
               <div>
-                <Label>Приоритет</Label>
+                <Label className="text-sm font-semibold">Приоритет</Label>
                 <p className="text-sm mt-1">
                   {selectedProject?.priority === "high" ? "Высокий" : 
                    selectedProject?.priority === "medium" ? "Средний" : "Низкий"}
                 </p>
               </div>
               <div>
-                <Label>Дедлайн</Label>
+                <Label className="text-sm font-semibold">Дедлайн</Label>
                 <p className="text-sm mt-1">{selectedProject?.deadline}</p>
               </div>
               <div>
-                <Label>Затрачено времени</Label>
+                <Label className="text-sm font-semibold">Затрачено времени</Label>
                 <p className="text-sm mt-1">{selectedProject?.timeSpent}</p>
               </div>
             </div>
             <div>
-              <Label>Прогресс</Label>
+              <Label className="text-base font-semibold">Прогресс</Label>
               <div className="space-y-2 mt-2">
                 <Progress value={selectedProject?.progress} className="h-2" />
                 <p className="text-sm text-muted-foreground">
@@ -464,7 +465,7 @@ export default function Projects() {
               </div>
             </div>
             <div>
-              <Label>Теги</Label>
+              <Label className="text-base font-semibold">Теги</Label>
               <div className="flex gap-2 mt-2">
                 {selectedProject?.tags.map((tag) => (
                   <Badge key={tag} variant="outline" className="text-xs">
@@ -474,13 +475,48 @@ export default function Projects() {
               </div>
             </div>
             <div>
-              <Label>Задачи в проекте</Label>
-              <div className="space-y-2 mt-2">
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-base font-semibold">Задачи в проекте</Label>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    setSelectedProjectForTasks(selectedProject);
+                    setSelectedProject(null);
+                    setIsAddTaskDialogOpen(true);
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Добавить
+                </Button>
+              </div>
+              <div className="space-y-2">
                 {selectedProject && getProjectTasks(selectedProject).length > 0 ? (
                   getProjectTasks(selectedProject).map((task) => (
-                    <div key={task.id} className="p-2 border rounded-lg">
+                    <div 
+                      key={task.id} 
+                      className="p-3 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        // Открываем диалог с деталями задачи
+                        const taskDetails = allTasks.find(t => t.id === task.id);
+                        if (taskDetails) {
+                          setSelectedTask(taskDetails);
+                        }
+                      }}
+                    >
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{task.title}</span>
+                        <div className="flex-1">
+                          <span className="text-sm font-medium">{task.title}</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-muted-foreground">Дедлайн: {task.deadline}</span>
+                            <Badge 
+                              variant={task.priority === "high" ? "destructive" : task.priority === "medium" ? "default" : "secondary"} 
+                              className="text-xs h-5"
+                            >
+                              {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
+                            </Badge>
+                          </div>
+                        </div>
                         <Badge variant={task.status === "completed" ? "outline" : "default"} className="text-xs">
                           {task.status === "completed" ? "Выполнена" : "Активна"}
                         </Badge>
@@ -488,9 +524,34 @@ export default function Projects() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">Задач нет</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">Задач нет</p>
                 )}
               </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Task Detail Dialog - показываем детали задачи из проекта */}
+      <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedTask?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Приоритет</Label>
+              <p className="text-sm mt-1">
+                {selectedTask?.priority === "high" ? "Высокий" : selectedTask?.priority === "medium" ? "Средний" : "Низкий"}
+              </p>
+            </div>
+            <div>
+              <Label>Дедлайн</Label>
+              <p className="text-sm mt-1">{selectedTask?.deadline}</p>
+            </div>
+            <div>
+              <Label>Статус</Label>
+              <p className="text-sm mt-1">{selectedTask?.status === "active" ? "Активна" : "Выполнена"}</p>
             </div>
           </div>
         </DialogContent>
