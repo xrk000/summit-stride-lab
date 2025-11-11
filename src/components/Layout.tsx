@@ -1,10 +1,10 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useState } from "react";
-import { Calendar, CheckSquare, StickyNote, TrendingUp, FolderKanban, LayoutDashboard, Search } from "lucide-react";
+import { Calendar, CheckSquare, StickyNote, TrendingUp, FolderKanban, LayoutDashboard, Search, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import GlobalSearch from "@/components/GlobalSearch";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navigation = [
   { name: "Дашборд", href: "/", icon: LayoutDashboard },
@@ -13,6 +13,7 @@ const navigation = [
   { name: "Заметки", href: "/notes", icon: StickyNote },
   { name: "Привычки", href: "/habits", icon: TrendingUp },
   { name: "Проекты", href: "/projects", icon: FolderKanban },
+  { name: "Аналитика", href: "/analytics", icon: BarChart3 },
 ];
 
 export default function Layout() {
@@ -62,10 +63,11 @@ export default function Layout() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-border flex items-center justify-between">
           <div className="text-xs text-muted-foreground">
             <p>Версия 1.0.0</p>
           </div>
+          <ThemeToggle />
         </div>
       </aside>
 

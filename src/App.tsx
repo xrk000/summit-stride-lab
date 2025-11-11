@@ -10,6 +10,7 @@ import Tasks from "./pages/Tasks";
 import Notes from "./pages/Notes";
 import Habits from "./pages/Habits";
 import Projects from "./pages/Projects";
+import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/notes" element={<Notes />} />
             <Route path="/habits" element={<Habits />} />
             <Route path="/projects" element={<Projects />} />
+            <Route path="/analytics" element={<Analytics />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
