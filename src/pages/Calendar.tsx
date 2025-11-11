@@ -209,9 +209,13 @@ export default function Calendar() {
                       "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
   const currentMonth = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
 
-  // Функция для получения количества событий на день
+  // Функция для получения количества событий на день с учетом фильтра
   const getEventsCountForDate = (dateStr: string) => {
-    return allEvents.filter(event => event.date === dateStr).length;
+    return allEvents.filter(event => {
+      const matchesDate = event.date === dateStr;
+      const matchesType = typeFilter === "all" || event.type === typeFilter;
+      return matchesDate && matchesType;
+    }).length;
   };
 
   // Генерация дней календаря
