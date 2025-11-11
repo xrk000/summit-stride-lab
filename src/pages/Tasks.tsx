@@ -47,7 +47,7 @@ export default function Tasks() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const projectIdValue = formData.get("projectId") as string;
-    const projectId = projectIdValue ? parseInt(projectIdValue) : undefined;
+    const projectId = projectIdValue && projectIdValue !== "none" ? parseInt(projectIdValue) : undefined;
     const selectedProject = projectId ? availableProjects.find(p => p.id === projectId) : undefined;
     
     if (editingTask) {
@@ -137,12 +137,12 @@ export default function Tasks() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="projectId">Проект (необязательно)</Label>
-                <Select name="projectId" defaultValue={editingTask?.projectId?.toString()}>
+                <Select name="projectId" defaultValue={editingTask?.projectId?.toString() || "none"}>
                   <SelectTrigger>
                     <SelectValue placeholder="Без проекта" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Без проекта</SelectItem>
+                    <SelectItem value="none">Без проекта</SelectItem>
                     {availableProjects.map(project => (
                       <SelectItem key={project.id} value={project.id.toString()}>
                         {project.name}
