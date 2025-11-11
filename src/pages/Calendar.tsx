@@ -17,6 +17,7 @@ type Event = {
   type: string;
   color: string;
   description?: string;
+  date: string; // Формат: YYYY-MM-DD
 };
 
 export default function Calendar() {
@@ -24,12 +25,34 @@ export default function Calendar() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDay, setSelectedDay] = useState<number>(11); // Текущий выбранный день
+  const [currentDate, setCurrentDate] = useState(new Date(2025, 10, 1)); // Ноябрь 2025
+  const [selectedDay, setSelectedDay] = useState<string>("2025-11-11"); // Текущий выбранный день в формате YYYY-MM-DD
 
   const [events, setEvents] = useState<Event[]>([
-    { id: 1, time: "09:00", title: "Утренняя планерка", type: "meeting", color: "primary" },
-    { id: 2, time: "14:00", title: "Презентация проекта", type: "task", color: "warning" },
-    { id: 3, time: "19:00", title: "Тренировка", type: "habit", color: "success" },
+    // 5 ноября - 1 событие
+    { id: 1, time: "10:00", title: "Встреча с клиентом", type: "meeting", color: "primary", date: "2025-11-05" },
+    
+    // 11 ноября - 3 события
+    { id: 2, time: "09:00", title: "Утренняя планерка", type: "meeting", color: "primary", date: "2025-11-11" },
+    { id: 3, time: "14:00", title: "Презентация проекта", type: "task", color: "warning", date: "2025-11-11" },
+    { id: 4, time: "19:00", title: "Тренировка", type: "habit", color: "success", date: "2025-11-11" },
+    
+    // 15 ноября - 5 событий
+    { id: 5, time: "08:00", title: "Пробежка", type: "habit", color: "success", date: "2025-11-15" },
+    { id: 6, time: "10:00", title: "Звонок с командой", type: "meeting", color: "primary", date: "2025-11-15" },
+    { id: 7, time: "12:30", title: "Обед с партнерами", type: "meeting", color: "primary", date: "2025-11-15" },
+    { id: 8, time: "15:00", title: "Работа над задачами", type: "task", color: "warning", date: "2025-11-15" },
+    { id: 9, time: "18:00", title: "Английский", type: "habit", color: "success", date: "2025-11-15" },
+    
+    // 20 ноября - 2 события
+    { id: 10, time: "11:00", title: "Консультация", type: "meeting", color: "primary", date: "2025-11-20" },
+    { id: 11, time: "16:00", title: "Код-ревью", type: "task", color: "warning", date: "2025-11-20" },
+    
+    // 25 ноября - 4 события
+    { id: 12, time: "09:00", title: "Планирование спринта", type: "meeting", color: "primary", date: "2025-11-25" },
+    { id: 13, time: "11:30", title: "Разработка фичи", type: "task", color: "warning", date: "2025-11-25" },
+    { id: 14, time: "15:00", title: "Тестирование", type: "task", color: "warning", date: "2025-11-25" },
+    { id: 15, time: "20:00", title: "Чтение", type: "habit", color: "success", date: "2025-11-25" },
   ]);
 
   const handleAddEvent = (e: React.FormEvent<HTMLFormElement>) => {
@@ -59,6 +82,7 @@ export default function Calendar() {
         type,
         color: type === "meeting" ? "primary" : type === "task" ? "warning" : "success",
         description: formData.get("description") as string,
+        date: selectedDay,
       };
       setEvents([...events, newEvent]);
     }
@@ -77,22 +101,60 @@ export default function Calendar() {
   };
 
   const filteredEvents = events.filter((event) => {
-    if (!searchQuery) return true;
-    return event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = !searchQuery || 
+      event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (event.description && event.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesDate = event.date === selectedDay;
+    
+    return matchesSearch && matchesDate;
   });
 
   const days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-  const currentMonth = "Ноябрь 2024";
+  
+  const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", 
+                      "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+  const currentMonth = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
 
-  // Mock calendar data
-  const calendarDays = Array.from({ length: 35 }, (_, i) => {
-    const day = i - 3; // Start from previous month
-    const eventsCount = Math.random() > 0.7 ? Math.floor(Math.random() * 3) + 1 : 0;
-    const intensity = eventsCount > 0 ? (eventsCount / 3) * 100 : 0;
-    return { day: day > 0 && day <= 30 ? day : null, events: eventsCount, intensity };
-  });
+  // Функция для получения количества событий на день
+  const getEventsCountForDate = (dateStr: string) => {
+    return events.filter(event => event.date === dateStr).length;
+  };
+
+  // Генерация дней календаря
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  
+  // Получаем день недели первого дня (0 = Воскресенье, нужно преобразовать)
+  let firstDayOfWeek = firstDay.getDay();
+  firstDayOfWeek = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1; // Преобразуем в формат Пн=0, Вс=6
+
+  const calendarDays = [];
+  
+  // Добавляем пустые ячейки для начала месяца
+  for (let i = 0; i < firstDayOfWeek; i++) {
+    calendarDays.push({ day: null, events: 0, intensity: 0, date: "" });
+  }
+  
+  // Добавляем дни месяца
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const eventsCount = getEventsCountForDate(dateStr);
+    const intensity = eventsCount > 0 ? Math.min((eventsCount / 5) * 100, 100) : 0;
+    calendarDays.push({ day, events: eventsCount, intensity, date: dateStr });
+  }
+
+  const handlePreviousMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
 
   return (
     <div className="p-8 space-y-6">
@@ -167,10 +229,10 @@ export default function Calendar() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-xl">{currentMonth}</CardTitle>
               <div className="flex gap-2">
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" onClick={handlePreviousMonth}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" onClick={handleNextMonth}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -188,15 +250,16 @@ export default function Calendar() {
               {calendarDays.map((item, i) => (
                 <button
                   key={i}
-                  onClick={() => item.day && setSelectedDay(item.day)}
+                  onClick={() => item.day && setSelectedDay(item.date)}
+                  disabled={!item.day}
                   className={`
                     aspect-square rounded-lg p-2 relative transition-all
-                    ${item.day ? "hover:bg-muted cursor-pointer" : "cursor-default"}
-                    ${item.day === selectedDay ? "bg-primary text-primary-foreground font-bold ring-2 ring-primary ring-offset-2" : ""}
+                    ${item.day ? "hover:bg-muted cursor-pointer" : "cursor-default invisible"}
+                    ${item.date === selectedDay ? "bg-primary text-primary-foreground font-bold ring-2 ring-primary ring-offset-2" : ""}
                   `}
                   style={{
                     backgroundColor:
-                      item.day && item.day !== selectedDay && item.intensity > 0
+                      item.day && item.date !== selectedDay && item.intensity > 0
                         ? `hsl(262, 83%, ${95 - item.intensity * 0.5}%)`
                         : undefined,
                   }}
@@ -238,10 +301,15 @@ export default function Calendar() {
         {/* Today's Schedule */}
         <Card className="shadow-md">
           <CardHeader>
-            <CardTitle className="text-xl font-display">День {selectedDay}</CardTitle>
+            <CardTitle className="text-xl font-display">
+              {new Date(selectedDay).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {filteredEvents.map((event) => (
+            {filteredEvents.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Нет событий на этот день</p>
+            ) : (
+              filteredEvents.map((event) => (
               <div
                 key={event.id}
                 className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors space-y-2"
@@ -279,7 +347,8 @@ export default function Calendar() {
                 </div>
                 <p className="font-medium">{event.title}</p>
               </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
