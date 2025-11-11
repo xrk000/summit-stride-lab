@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useState } from "react";
-import { Calendar, CheckSquare, StickyNote, TrendingUp, FolderKanban, LayoutDashboard, Search, BarChart3 } from "lucide-react";
+import { Calendar, CheckSquare, StickyNote, TrendingUp, FolderKanban, LayoutDashboard, Search, BarChart3, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import GlobalSearch from "@/components/GlobalSearch";
@@ -14,6 +14,7 @@ const navigation = [
   { name: "Привычки", href: "/habits", icon: TrendingUp },
   { name: "Проекты", href: "/projects", icon: FolderKanban },
   { name: "Аналитика", href: "/analytics", icon: BarChart3 },
+  { name: "Профиль", href: "/profile", icon: User },
 ];
 
 export default function Layout() {
