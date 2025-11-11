@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, FolderKanban, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Plus, FolderKanban, Clock, CheckCircle2, AlertCircle, Pencil, Trash2 } from "lucide-react";
 
 type Project = {
   id: number;
@@ -27,6 +28,8 @@ type Project = {
 export default function Projects() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<number | null>(null);
   const [projects, setProjects] = useState<Project[]>([
     {
       id: 1,
@@ -74,22 +77,48 @@ export default function Projects() {
     const formData = new FormData(e.currentTarget);
     const tags = (formData.get("tags") as string).split(",").map(t => t.trim()).filter(Boolean);
     
-    const newProject: Project = {
-      id: projects.length + 1,
-      name: formData.get("name") as string,
-      description: formData.get("description") as string,
-      status: "planning",
-      progress: 0,
-      totalTasks: 0,
-      completedTasks: 0,
-      deadline: formData.get("deadline") as string,
-      timeSpent: "0ч 0м",
-      priority: formData.get("priority") as "high" | "medium" | "low",
-      tags,
-    };
-    setProjects([...projects, newProject]);
+    if (editingProject) {
+      setProjects(projects.map(project =>
+        project.id === editingProject.id
+          ? {
+              ...project,
+              name: formData.get("name") as string,
+              description: formData.get("description") as string,
+              deadline: formData.get("deadline") as string,
+              priority: formData.get("priority") as "high" | "medium" | "low",
+              tags,
+            }
+          : project
+      ));
+      setEditingProject(null);
+    } else {
+      const newProject: Project = {
+        id: Math.max(0, ...projects.map(p => p.id)) + 1,
+        name: formData.get("name") as string,
+        description: formData.get("description") as string,
+        status: "planning",
+        progress: 0,
+        totalTasks: 0,
+        completedTasks: 0,
+        deadline: formData.get("deadline") as string,
+        timeSpent: "0ч 0м",
+        priority: formData.get("priority") as "high" | "medium" | "low",
+        tags,
+      };
+      setProjects([...projects, newProject]);
+    }
     setIsDialogOpen(false);
     e.currentTarget.reset();
+  };
+
+  const handleEditProject = (project: Project) => {
+    setEditingProject(project);
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteProject = (projectId: number) => {
+    setProjects(projects.filter(project => project.id !== projectId));
+    setDeletingProjectId(null);
   };
 
   return (
@@ -99,7 +128,10 @@ export default function Projects() {
           <h1 className="text-3xl font-bold">Проекты</h1>
           <p className="text-muted-foreground mt-1">Управляйте крупными задачами</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setEditingProject(null);
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-primary">
               <Plus className="h-4 w-4 mr-2" />
@@ -108,20 +140,20 @@ export default function Projects() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Новый проект</DialogTitle>
+              <DialogTitle>{editingProject ? "Редактировать проект" : "Новый проект"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddProject} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Название</Label>
-                <Input id="name" name="name" required />
+                <Input id="name" name="name" defaultValue={editingProject?.name} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Описание</Label>
-                <Textarea id="description" name="description" required />
+                <Textarea id="description" name="description" defaultValue={editingProject?.description} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="priority">Приоритет</Label>
-                <Select name="priority" required>
+                <Select name="priority" defaultValue={editingProject?.priority} required>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите приоритет" />
                   </SelectTrigger>
@@ -134,13 +166,20 @@ export default function Projects() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="deadline">Дедлайн</Label>
-                <Input id="deadline" name="deadline" type="date" required />
+                <Input id="deadline" name="deadline" type="date" defaultValue={editingProject?.deadline} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tags">Теги (через запятую)</Label>
-                <Input id="tags" name="tags" placeholder="работа, разработка" />
+                <Input 
+                  id="tags" 
+                  name="tags" 
+                  defaultValue={editingProject?.tags.join(", ")}
+                  placeholder="работа, разработка" 
+                />
               </div>
-              <Button type="submit" className="w-full">Создать проект</Button>
+              <Button type="submit" className="w-full">
+                {editingProject ? "Сохранить" : "Создать проект"}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -285,6 +324,21 @@ export default function Projects() {
                 >
                   Просмотр
                 </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleEditProject(project)}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setDeletingProjectId(project.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -348,6 +402,24 @@ export default function Projects() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingProjectId} onOpenChange={() => setDeletingProjectId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить проект?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить этот проект? Все связанные задачи и данные будут утеряны. Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deletingProjectId && handleDeleteProject(deletingProjectId)}>
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

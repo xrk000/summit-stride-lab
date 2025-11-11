@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, TrendingUp, Calendar, Check } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Plus, TrendingUp, Calendar, Check, Pencil, Trash2 } from "lucide-react";
 
 type Habit = {
   id: number;
@@ -23,6 +24,8 @@ type Habit = {
 
 export default function Habits() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  const [deletingHabitId, setDeletingHabitId] = useState<number | null>(null);
   const [habits, setHabits] = useState<Habit[]>([
     {
       id: 1,
@@ -71,19 +74,45 @@ export default function Habits() {
   const handleAddHabit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newHabit: Habit = {
-      id: habits.length + 1,
-      name: formData.get("name") as string,
-      description: formData.get("description") as string,
-      streak: 0,
-      goal: parseInt(formData.get("goal") as string),
-      completedToday: false,
-      weekProgress: [false, false, false, false, false, false, false],
-      category: formData.get("category") as string,
-    };
-    setHabits([...habits, newHabit]);
+    
+    if (editingHabit) {
+      setHabits(habits.map(habit =>
+        habit.id === editingHabit.id
+          ? {
+              ...habit,
+              name: formData.get("name") as string,
+              description: formData.get("description") as string,
+              goal: parseInt(formData.get("goal") as string),
+              category: formData.get("category") as string,
+            }
+          : habit
+      ));
+      setEditingHabit(null);
+    } else {
+      const newHabit: Habit = {
+        id: Math.max(0, ...habits.map(h => h.id)) + 1,
+        name: formData.get("name") as string,
+        description: formData.get("description") as string,
+        streak: 0,
+        goal: parseInt(formData.get("goal") as string),
+        completedToday: false,
+        weekProgress: [false, false, false, false, false, false, false],
+        category: formData.get("category") as string,
+      };
+      setHabits([...habits, newHabit]);
+    }
     setIsDialogOpen(false);
     e.currentTarget.reset();
+  };
+
+  const handleEditHabit = (habit: Habit) => {
+    setEditingHabit(habit);
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteHabit = (habitId: number) => {
+    setHabits(habits.filter(habit => habit.id !== habitId));
+    setDeletingHabitId(null);
   };
 
   const toggleHabitCompletion = (habitId: number) => {
@@ -111,7 +140,10 @@ export default function Habits() {
           <h1 className="text-3xl font-bold">Привычки</h1>
           <p className="text-muted-foreground mt-1">Отслеживайте свой прогресс</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setEditingHabit(null);
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-primary">
               <Plus className="h-4 w-4 mr-2" />
@@ -120,20 +152,20 @@ export default function Habits() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Новая привычка</DialogTitle>
+              <DialogTitle>{editingHabit ? "Редактировать привычку" : "Новая привычка"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddHabit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Название</Label>
-                <Input id="name" name="name" required />
+                <Input id="name" name="name" defaultValue={editingHabit?.name} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Описание</Label>
-                <Textarea id="description" name="description" required />
+                <Textarea id="description" name="description" defaultValue={editingHabit?.description} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="category">Категория</Label>
-                <Select name="category" required>
+                <Select name="category" defaultValue={editingHabit?.category} required>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите категорию" />
                   </SelectTrigger>
@@ -147,9 +179,18 @@ export default function Habits() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="goal">Цель (дней)</Label>
-                <Input id="goal" name="goal" type="number" min="1" defaultValue="30" required />
+                <Input 
+                  id="goal" 
+                  name="goal" 
+                  type="number" 
+                  min="1" 
+                  defaultValue={editingHabit?.goal || "30"} 
+                  required 
+                />
               </div>
-              <Button type="submit" className="w-full">Добавить</Button>
+              <Button type="submit" className="w-full">
+                {editingHabit ? "Сохранить" : "Добавить"}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -211,11 +252,31 @@ export default function Habits() {
                     </div>
                     <p className="text-sm text-muted-foreground">{habit.description}</p>
                   </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-2 text-2xl font-bold">
-                      🔥 {habit.streak}
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <div className="flex items-center gap-2 text-2xl font-bold">
+                        🔥 {habit.streak}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">дней подряд</p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">дней подряд</p>
+                    <div className="flex flex-col gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleEditHabit(habit)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => setDeletingHabitId(habit.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -267,6 +328,24 @@ export default function Habits() {
           </Card>
         ))}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingHabitId} onOpenChange={() => setDeletingHabitId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить привычку?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить эту привычку? Весь прогресс будет утерян. Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deletingHabitId && handleDeleteHabit(deletingHabitId)}>
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

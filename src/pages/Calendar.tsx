@@ -7,11 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2 } from "lucide-react";
+
+type Event = {
+  id: number;
+  time: string;
+  title: string;
+  type: string;
+  color: string;
+  description?: string;
+};
 
 export default function Calendar() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [events, setEvents] = useState([
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [deletingEventId, setDeletingEventId] = useState<number | null>(null);
+  const [events, setEvents] = useState<Event[]>([
     { id: 1, time: "09:00", title: "Утренняя планерка", type: "meeting", color: "primary" },
     { id: 2, time: "14:00", title: "Презентация проекта", type: "task", color: "warning" },
     { id: 3, time: "19:00", title: "Тренировка", type: "habit", color: "success" },
@@ -20,16 +32,45 @@ export default function Calendar() {
   const handleAddEvent = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newEvent = {
-      id: events.length + 1,
-      time: formData.get("time") as string,
-      title: formData.get("title") as string,
-      type: formData.get("type") as string,
-      color: formData.get("type") === "meeting" ? "primary" : formData.get("type") === "task" ? "warning" : "success",
-    };
-    setEvents([...events, newEvent]);
+    const type = formData.get("type") as string;
+    
+    if (editingEvent) {
+      setEvents(events.map(event => 
+        event.id === editingEvent.id 
+          ? {
+              ...event,
+              time: formData.get("time") as string,
+              title: formData.get("title") as string,
+              type,
+              color: type === "meeting" ? "primary" : type === "task" ? "warning" : "success",
+              description: formData.get("description") as string,
+            }
+          : event
+      ));
+      setEditingEvent(null);
+    } else {
+      const newEvent: Event = {
+        id: Math.max(0, ...events.map(e => e.id)) + 1,
+        time: formData.get("time") as string,
+        title: formData.get("title") as string,
+        type,
+        color: type === "meeting" ? "primary" : type === "task" ? "warning" : "success",
+        description: formData.get("description") as string,
+      };
+      setEvents([...events, newEvent]);
+    }
     setIsDialogOpen(false);
     e.currentTarget.reset();
+  };
+
+  const handleEditEvent = (event: Event) => {
+    setEditingEvent(event);
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteEvent = (eventId: number) => {
+    setEvents(events.filter(event => event.id !== eventId));
+    setDeletingEventId(null);
   };
   const days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
   const currentMonth = "Ноябрь 2024";
@@ -49,7 +90,10 @@ export default function Calendar() {
           <h1 className="text-3xl font-bold">Календарь</h1>
           <p className="text-muted-foreground mt-1">Планируйте своё время эффективно</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setEditingEvent(null);
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-primary">
               <Plus className="h-4 w-4 mr-2" />
@@ -58,20 +102,20 @@ export default function Calendar() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Новое событие</DialogTitle>
+              <DialogTitle>{editingEvent ? "Редактировать событие" : "Новое событие"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddEvent} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Название</Label>
-                <Input id="title" name="title" required />
+                <Input id="title" name="title" defaultValue={editingEvent?.title} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="time">Время</Label>
-                <Input id="time" name="time" type="time" required />
+                <Input id="time" name="time" type="time" defaultValue={editingEvent?.time} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="type">Тип</Label>
-                <Select name="type" required>
+                <Select name="type" defaultValue={editingEvent?.type} required>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите тип" />
                   </SelectTrigger>
@@ -84,9 +128,11 @@ export default function Calendar() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Описание</Label>
-                <Textarea id="description" name="description" />
+                <Textarea id="description" name="description" defaultValue={editingEvent?.description} />
               </div>
-              <Button type="submit" className="w-full">Добавить</Button>
+              <Button type="submit" className="w-full">
+                {editingEvent ? "Сохранить" : "Добавить"}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -179,16 +225,34 @@ export default function Calendar() {
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-muted-foreground">{event.time}</span>
-                  <Badge
-                    variant="outline"
-                    className={`
-                      ${event.color === "primary" ? "bg-primary/10 text-primary border-primary/20" : ""}
-                      ${event.color === "warning" ? "bg-warning/10 text-warning border-warning/20" : ""}
-                      ${event.color === "success" ? "bg-success/10 text-success border-success/20" : ""}
-                    `}
-                  >
-                    {event.type === "meeting" ? "Встреча" : event.type === "task" ? "Задача" : "Привычка"}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={`
+                        ${event.color === "primary" ? "bg-primary/10 text-primary border-primary/20" : ""}
+                        ${event.color === "warning" ? "bg-warning/10 text-warning border-warning/20" : ""}
+                        ${event.color === "success" ? "bg-success/10 text-success border-success/20" : ""}
+                      `}
+                    >
+                      {event.type === "meeting" ? "Встреча" : event.type === "task" ? "Задача" : "Привычка"}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleEditEvent(event)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={() => setDeletingEventId(event.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
                 <p className="font-medium">{event.title}</p>
               </div>
@@ -196,6 +260,24 @@ export default function Calendar() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingEventId} onOpenChange={() => setDeletingEventId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить событие?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить это событие? Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deletingEventId && handleDeleteEvent(deletingEventId)}>
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

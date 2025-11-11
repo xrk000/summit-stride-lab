@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, Filter, ChevronRight } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Plus, Search, Filter, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Task = {
@@ -24,6 +25,8 @@ export default function Tasks() {
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
   const [tasks, setTasks] = useState<Task[]>([
     { id: 1, title: "Написать отчет", project: "Работа", priority: "high", status: "active", deadline: "Сегодня", description: "Подготовить квартальный отчет" },
     { id: 2, title: "Обновить документацию", project: "Проект А", priority: "medium", status: "active", deadline: "Завтра", description: "Обновить README и API документацию" },
@@ -34,18 +37,45 @@ export default function Tasks() {
   const handleAddTask = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newTask: Task = {
-      id: tasks.length + 1,
-      title: formData.get("title") as string,
-      project: formData.get("project") as string,
-      priority: formData.get("priority") as "high" | "medium" | "low",
-      status: "active",
-      deadline: formData.get("deadline") as string,
-      description: formData.get("description") as string,
-    };
-    setTasks([...tasks, newTask]);
+    
+    if (editingTask) {
+      setTasks(tasks.map(task =>
+        task.id === editingTask.id
+          ? {
+              ...task,
+              title: formData.get("title") as string,
+              project: formData.get("project") as string,
+              priority: formData.get("priority") as "high" | "medium" | "low",
+              deadline: formData.get("deadline") as string,
+              description: formData.get("description") as string,
+            }
+          : task
+      ));
+      setEditingTask(null);
+    } else {
+      const newTask: Task = {
+        id: Math.max(0, ...tasks.map(t => t.id)) + 1,
+        title: formData.get("title") as string,
+        project: formData.get("project") as string,
+        priority: formData.get("priority") as "high" | "medium" | "low",
+        status: "active",
+        deadline: formData.get("deadline") as string,
+        description: formData.get("description") as string,
+      };
+      setTasks([...tasks, newTask]);
+    }
     setIsDialogOpen(false);
     e.currentTarget.reset();
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteTask = (taskId: number) => {
+    setTasks(tasks.filter(task => task.id !== taskId));
+    setDeletingTaskId(null);
   };
 
   const toggleTaskStatus = (taskId: number) => {
@@ -68,7 +98,10 @@ export default function Tasks() {
           <h1 className="text-3xl font-bold">Задачи</h1>
           <p className="text-muted-foreground mt-1">Управляйте своими задачами и проектами</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setEditingTask(null);
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-primary">
               <Plus className="h-4 w-4 mr-2" />
@@ -77,20 +110,20 @@ export default function Tasks() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Новая задача</DialogTitle>
+              <DialogTitle>{editingTask ? "Редактировать задачу" : "Новая задача"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddTask} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Название</Label>
-                <Input id="title" name="title" required />
+                <Input id="title" name="title" defaultValue={editingTask?.title} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="project">Проект</Label>
-                <Input id="project" name="project" required />
+                <Input id="project" name="project" defaultValue={editingTask?.project} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="priority">Приоритет</Label>
-                <Select name="priority" required>
+                <Select name="priority" defaultValue={editingTask?.priority} required>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите приоритет" />
                   </SelectTrigger>
@@ -103,13 +136,15 @@ export default function Tasks() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="deadline">Дедлайн</Label>
-                <Input id="deadline" name="deadline" type="date" required />
+                <Input id="deadline" name="deadline" type="date" defaultValue={editingTask?.deadline} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Описание</Label>
-                <Textarea id="description" name="description" />
+                <Textarea id="description" name="description" defaultValue={editingTask?.description} />
               </div>
-              <Button type="submit" className="w-full">Добавить</Button>
+              <Button type="submit" className="w-full">
+                {editingTask ? "Сохранить" : "Добавить"}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -195,6 +230,21 @@ export default function Tasks() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    onClick={() => handleEditTask(task)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setDeletingTaskId(task.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setSelectedTask(task)}
                   >
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -238,6 +288,24 @@ export default function Tasks() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingTaskId} onOpenChange={() => setDeletingTaskId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить задачу?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deletingTaskId && handleDeleteTask(deletingTaskId)}>
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

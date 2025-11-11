@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, FileText, Calendar as CalendarIcon } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Plus, Search, FileText, Calendar as CalendarIcon, Pencil, Trash2 } from "lucide-react";
 
 type Note = {
   id: number;
@@ -21,6 +22,8 @@ type Note = {
 export default function Notes() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   
   const templates = [
@@ -67,19 +70,45 @@ export default function Notes() {
     const wordCount = content.trim().split(/\s+/).length;
     const tags = (formData.get("tags") as string).split(",").map(t => t.trim()).filter(Boolean);
     
-    const newNote: Note = {
-      id: notes.length + 1,
-      title: formData.get("title") as string,
-      preview: content.substring(0, 50) + "...",
-      tags,
-      date: "Только что",
-      words: wordCount,
-      content,
-    };
-    setNotes([newNote, ...notes]);
+    if (editingNote) {
+      setNotes(notes.map(note =>
+        note.id === editingNote.id
+          ? {
+              ...note,
+              title: formData.get("title") as string,
+              preview: content.substring(0, 50) + "...",
+              tags,
+              words: wordCount,
+              content,
+            }
+          : note
+      ));
+      setEditingNote(null);
+    } else {
+      const newNote: Note = {
+        id: Math.max(0, ...notes.map(n => n.id)) + 1,
+        title: formData.get("title") as string,
+        preview: content.substring(0, 50) + "...",
+        tags,
+        date: "Только что",
+        words: wordCount,
+        content,
+      };
+      setNotes([newNote, ...notes]);
+    }
     setIsDialogOpen(false);
     setSelectedTemplate(null);
     e.currentTarget.reset();
+  };
+
+  const handleEditNote = (note: Note) => {
+    setEditingNote(note);
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteNote = (noteId: number) => {
+    setNotes(notes.filter(note => note.id !== noteId));
+    setDeletingNoteId(null);
   };
 
   const handleTemplateSelect = (template: string) => {
@@ -102,7 +131,10 @@ export default function Notes() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
-          if (!open) setSelectedTemplate(null);
+          if (!open) {
+            setSelectedTemplate(null);
+            setEditingNote(null);
+          }
         }}>
           <DialogTrigger asChild>
             <Button className="bg-primary">
@@ -112,12 +144,12 @@ export default function Notes() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Новая заметка</DialogTitle>
+              <DialogTitle>{editingNote ? "Редактировать заметку" : "Новая заметка"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddNote} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Название</Label>
-                <Input id="title" name="title" required />
+                <Input id="title" name="title" defaultValue={editingNote?.title} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="content">Содержание</Label>
@@ -125,15 +157,22 @@ export default function Notes() {
                   id="content" 
                   name="content" 
                   rows={10} 
-                  defaultValue={selectedTemplate || ""}
+                  defaultValue={editingNote?.content || selectedTemplate || ""}
                   required 
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="tags">Теги (через запятую)</Label>
-                <Input id="tags" name="tags" placeholder="работа, личное, идеи" />
+                <Input 
+                  id="tags" 
+                  name="tags" 
+                  defaultValue={editingNote?.tags.join(", ")}
+                  placeholder="работа, личное, идеи" 
+                />
               </div>
-              <Button type="submit" className="w-full">Создать заметку</Button>
+              <Button type="submit" className="w-full">
+                {editingNote ? "Сохранить" : "Создать заметку"}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
@@ -212,14 +251,37 @@ export default function Notes() {
         {notes.map((note) => (
           <Card 
             key={note.id} 
-            className="shadow-md hover:shadow-lg transition-all cursor-pointer"
-            onClick={() => setSelectedNote(note)}
+            className="shadow-md hover:shadow-lg transition-all"
           >
             <CardContent className="p-5">
               <div className="space-y-3">
                 <div>
-                  <h3 className="font-semibold text-lg mb-1">{note.title}</h3>
-                  <p className="text-muted-foreground text-sm">{note.preview}</p>
+                  <div className="flex items-start justify-between gap-4 mb-1">
+                    <h3 className="font-semibold text-lg flex-1 cursor-pointer" onClick={() => setSelectedNote(note)}>
+                      {note.title}
+                    </h3>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleEditNote(note)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => setDeletingNoteId(note.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground text-sm cursor-pointer" onClick={() => setSelectedNote(note)}>
+                    {note.preview}
+                  </p>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -266,6 +328,24 @@ export default function Notes() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingNoteId} onOpenChange={() => setDeletingNoteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить заметку?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Вы уверены, что хотите удалить эту заметку? Это действие нельзя отменить.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deletingNoteId && handleDeleteNote(deletingNoteId)}>
+              Удалить
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
