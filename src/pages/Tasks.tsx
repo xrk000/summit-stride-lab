@@ -1,20 +1,60 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, Filter, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type Task = {
+  id: number;
+  title: string;
+  project: string;
+  priority: "high" | "medium" | "low";
+  status: "active" | "completed";
+  deadline: string;
+  description?: string;
+};
+
 export default function Tasks() {
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([
+    { id: 1, title: "Написать отчет", project: "Работа", priority: "high", status: "active", deadline: "Сегодня", description: "Подготовить квартальный отчет" },
+    { id: 2, title: "Обновить документацию", project: "Проект А", priority: "medium", status: "active", deadline: "Завтра", description: "Обновить README и API документацию" },
+    { id: 3, title: "Код ревью", project: "Работа", priority: "low", status: "completed", deadline: "Вчера", description: "Проверить PR от коллеги" },
+    { id: 4, title: "Купить продукты", project: "Личное", priority: "medium", status: "active", deadline: "Сегодня", description: "Молоко, хлеб, яйца" },
+  ]);
 
-  const tasks = [
-    { id: 1, title: "Написать отчет", project: "Работа", priority: "high", status: "active", deadline: "Сегодня" },
-    { id: 2, title: "Обновить документацию", project: "Проект А", priority: "medium", status: "active", deadline: "Завтра" },
-    { id: 3, title: "Код ревью", project: "Работа", priority: "low", status: "completed", deadline: "Вчера" },
-    { id: 4, title: "Купить продукты", project: "Личное", priority: "medium", status: "active", deadline: "Сегодня" },
-  ];
+  const handleAddTask = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newTask: Task = {
+      id: tasks.length + 1,
+      title: formData.get("title") as string,
+      project: formData.get("project") as string,
+      priority: formData.get("priority") as "high" | "medium" | "low",
+      status: "active",
+      deadline: formData.get("deadline") as string,
+      description: formData.get("description") as string,
+    };
+    setTasks([...tasks, newTask]);
+    setIsDialogOpen(false);
+    e.currentTarget.reset();
+  };
+
+  const toggleTaskStatus = (taskId: number) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId 
+        ? { ...task, status: task.status === "active" ? "completed" : "active" as "active" | "completed" }
+        : task
+    ));
+  };
 
   const filteredTasks = tasks.filter((task) => {
     if (filter === "all") return true;
@@ -28,10 +68,51 @@ export default function Tasks() {
           <h1 className="text-3xl font-bold">Задачи</h1>
           <p className="text-muted-foreground mt-1">Управляйте своими задачами и проектами</p>
         </div>
-        <Button className="bg-primary">
-          <Plus className="h-4 w-4 mr-2" />
-          Новая задача
-        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary">
+              <Plus className="h-4 w-4 mr-2" />
+              Новая задача
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Новая задача</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAddTask} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Название</Label>
+                <Input id="title" name="title" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="project">Проект</Label>
+                <Input id="project" name="project" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="priority">Приоритет</Label>
+                <Select name="priority" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите приоритет" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">Высокий</SelectItem>
+                    <SelectItem value="medium">Средний</SelectItem>
+                    <SelectItem value="low">Низкий</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deadline">Дедлайн</Label>
+                <Input id="deadline" name="deadline" type="date" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Описание</Label>
+                <Textarea id="description" name="description" />
+              </div>
+              <Button type="submit" className="w-full">Добавить</Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex items-center gap-4">
@@ -69,7 +150,7 @@ export default function Tasks() {
           <Card
             key={task.id}
             className={cn(
-              "shadow-md hover:shadow-lg transition-all cursor-pointer",
+              "shadow-md hover:shadow-lg transition-all",
               task.status === "completed" && "opacity-60"
             )}
           >
@@ -79,8 +160,8 @@ export default function Tasks() {
                   <input
                     type="checkbox"
                     checked={task.status === "completed"}
-                    className="h-5 w-5 rounded border-border"
-                    readOnly
+                    onChange={() => toggleTaskStatus(task.id)}
+                    className="h-5 w-5 rounded border-border cursor-pointer"
                   />
                   <div className="flex-1">
                     <h3
@@ -111,13 +192,52 @@ export default function Tasks() {
                   >
                     {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
                   </Badge>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedTask(task)}
+                  >
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Task Detail Dialog */}
+      <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedTask?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Проект</Label>
+              <p className="text-sm mt-1">{selectedTask?.project}</p>
+            </div>
+            <div>
+              <Label>Приоритет</Label>
+              <p className="text-sm mt-1">
+                {selectedTask?.priority === "high" ? "Высокий" : selectedTask?.priority === "medium" ? "Средний" : "Низкий"}
+              </p>
+            </div>
+            <div>
+              <Label>Дедлайн</Label>
+              <p className="text-sm mt-1">{selectedTask?.deadline}</p>
+            </div>
+            <div>
+              <Label>Описание</Label>
+              <p className="text-sm mt-1">{selectedTask?.description || "Нет описания"}</p>
+            </div>
+            <div>
+              <Label>Статус</Label>
+              <p className="text-sm mt-1">{selectedTask?.status === "active" ? "Активна" : "Выполнена"}</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
