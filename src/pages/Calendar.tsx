@@ -34,6 +34,7 @@ export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date(2025, 10, 1)); // Ноябрь 2025
   const [selectedDay, setSelectedDay] = useState<string>("2025-11-11"); // Текущий выбранный день в формате YYYY-MM-DD
   const [draggedEvent, setDraggedEvent] = useState<Event | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string>("all"); // all, meeting, task, habit, note
 
   // Моковые данные для связи
   const availableTasks = [
@@ -197,8 +198,9 @@ export default function Calendar() {
       (event.description && event.description.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesDate = event.date === selectedDay;
+    const matchesType = typeFilter === "all" || event.type === typeFilter;
     
-    return matchesSearch && matchesDate;
+    return matchesSearch && matchesDate && matchesType;
   });
 
   const days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -356,15 +358,29 @@ export default function Calendar() {
         </Dialog>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input 
-          placeholder="Поиск событий..." 
-          className="pl-9"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Поиск событий..." 
+            className="pl-9"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="Фильтр по типу" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все события</SelectItem>
+            <SelectItem value="meeting">Встречи</SelectItem>
+            <SelectItem value="task">Задачи</SelectItem>
+            <SelectItem value="habit">Привычки</SelectItem>
+            <SelectItem value="note">Заметки</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
