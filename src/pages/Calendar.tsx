@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, DragEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Search } from "lucide-react";
 
+type RecurrenceType = "none" | "daily" | "weekly" | "monthly";
+
 type Event = {
   id: number;
   time: string;
@@ -18,6 +20,10 @@ type Event = {
   color: string;
   description?: string;
   date: string; // Формат: YYYY-MM-DD
+  recurrence?: RecurrenceType;
+  recurrenceEndDate?: string;
+  linkedTaskId?: number;
+  linkedHabitId?: number;
 };
 
 export default function Calendar() {
@@ -27,38 +33,91 @@ export default function Calendar() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date(2025, 10, 1)); // Ноябрь 2025
   const [selectedDay, setSelectedDay] = useState<string>("2025-11-11"); // Текущий выбранный день в формате YYYY-MM-DD
+  const [draggedEvent, setDraggedEvent] = useState<Event | null>(null);
+
+  // Моковые данные для связи
+  const availableTasks = [
+    { id: 1, title: "Написать отчет" },
+    { id: 2, title: "Обновить документацию" },
+    { id: 3, title: "Код ревью" },
+  ];
+
+  const availableHabits = [
+    { id: 1, name: "Медитация" },
+    { id: 2, name: "Чтение" },
+    { id: 3, name: "Тренировка" },
+  ];
 
   const [events, setEvents] = useState<Event[]>([
     // 5 ноября - 1 событие
-    { id: 1, time: "10:00", title: "Встреча с клиентом", type: "meeting", color: "primary", date: "2025-11-05" },
+    { id: 1, time: "10:00", title: "Встреча с клиентом", type: "meeting", color: "primary", date: "2025-11-05", recurrence: "none" },
     
     // 11 ноября - 3 события
-    { id: 2, time: "09:00", title: "Утренняя планерка", type: "meeting", color: "primary", date: "2025-11-11" },
-    { id: 3, time: "14:00", title: "Презентация проекта", type: "task", color: "warning", date: "2025-11-11" },
-    { id: 4, time: "19:00", title: "Тренировка", type: "habit", color: "success", date: "2025-11-11" },
+    { id: 2, time: "09:00", title: "Утренняя планерка", type: "meeting", color: "primary", date: "2025-11-11", recurrence: "weekly", recurrenceEndDate: "2025-12-31" },
+    { id: 3, time: "14:00", title: "Презентация проекта", type: "task", color: "warning", date: "2025-11-11", linkedTaskId: 2 },
+    { id: 4, time: "19:00", title: "Тренировка", type: "habit", color: "success", date: "2025-11-11", recurrence: "daily", linkedHabitId: 3 },
     
     // 15 ноября - 5 событий
-    { id: 5, time: "08:00", title: "Пробежка", type: "habit", color: "success", date: "2025-11-15" },
+    { id: 5, time: "08:00", title: "Пробежка", type: "habit", color: "success", date: "2025-11-15", recurrence: "daily" },
     { id: 6, time: "10:00", title: "Звонок с командой", type: "meeting", color: "primary", date: "2025-11-15" },
     { id: 7, time: "12:30", title: "Обед с партнерами", type: "meeting", color: "primary", date: "2025-11-15" },
-    { id: 8, time: "15:00", title: "Работа над задачами", type: "task", color: "warning", date: "2025-11-15" },
-    { id: 9, time: "18:00", title: "Английский", type: "habit", color: "success", date: "2025-11-15" },
+    { id: 8, time: "15:00", title: "Работа над задачами", type: "task", color: "warning", date: "2025-11-15", linkedTaskId: 1 },
+    { id: 9, time: "18:00", title: "Английский", type: "habit", color: "success", date: "2025-11-15", linkedHabitId: 2 },
     
     // 20 ноября - 2 события
     { id: 10, time: "11:00", title: "Консультация", type: "meeting", color: "primary", date: "2025-11-20" },
-    { id: 11, time: "16:00", title: "Код-ревью", type: "task", color: "warning", date: "2025-11-20" },
+    { id: 11, time: "16:00", title: "Код-ревью", type: "task", color: "warning", date: "2025-11-20", linkedTaskId: 3 },
     
     // 25 ноября - 4 события
     { id: 12, time: "09:00", title: "Планирование спринта", type: "meeting", color: "primary", date: "2025-11-25" },
     { id: 13, time: "11:30", title: "Разработка фичи", type: "task", color: "warning", date: "2025-11-25" },
     { id: 14, time: "15:00", title: "Тестирование", type: "task", color: "warning", date: "2025-11-25" },
-    { id: 15, time: "20:00", title: "Чтение", type: "habit", color: "success", date: "2025-11-25" },
+    { id: 15, time: "20:00", title: "Чтение", type: "habit", color: "success", date: "2025-11-25", recurrence: "daily", linkedHabitId: 2 },
   ]);
+
+  // Генерация повторяющихся событий
+  const generateRecurringEvents = (event: Event): Event[] => {
+    if (!event.recurrence || event.recurrence === "none") return [event];
+    
+    const recurringEvents: Event[] = [event];
+    const startDate = new Date(event.date);
+    const endDate = event.recurrenceEndDate ? new Date(event.recurrenceEndDate) : new Date(startDate.getFullYear(), startDate.getMonth() + 3, startDate.getDate());
+    
+    let currentDate = new Date(startDate);
+    let idCounter = 1;
+    
+    while (currentDate <= endDate) {
+      if (event.recurrence === "daily") {
+        currentDate.setDate(currentDate.getDate() + 1);
+      } else if (event.recurrence === "weekly") {
+        currentDate.setDate(currentDate.getDate() + 7);
+      } else if (event.recurrence === "monthly") {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+      }
+      
+      if (currentDate <= endDate) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        recurringEvents.push({
+          ...event,
+          id: event.id * 10000 + idCounter++,
+          date: dateStr,
+        });
+      }
+    }
+    
+    return recurringEvents;
+  };
+
+  // Расширенный список событий с повторяющимися
+  const allEvents = events.flatMap(event => generateRecurringEvents(event));
 
   const handleAddEvent = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const type = formData.get("type") as string;
+    const recurrence = formData.get("recurrence") as RecurrenceType;
+    const linkedTaskId = formData.get("linkedTaskId") as string;
+    const linkedHabitId = formData.get("linkedHabitId") as string;
     
     if (editingEvent) {
       setEvents(events.map(event => 
@@ -70,6 +129,10 @@ export default function Calendar() {
               type,
               color: type === "meeting" ? "primary" : type === "task" ? "warning" : "success",
               description: formData.get("description") as string,
+              recurrence,
+              recurrenceEndDate: recurrence !== "none" ? formData.get("recurrenceEndDate") as string : undefined,
+              linkedTaskId: linkedTaskId ? parseInt(linkedTaskId) : undefined,
+              linkedHabitId: linkedHabitId ? parseInt(linkedHabitId) : undefined,
             }
           : event
       ));
@@ -83,6 +146,10 @@ export default function Calendar() {
         color: type === "meeting" ? "primary" : type === "task" ? "warning" : "success",
         description: formData.get("description") as string,
         date: selectedDay,
+        recurrence,
+        recurrenceEndDate: recurrence !== "none" ? formData.get("recurrenceEndDate") as string : undefined,
+        linkedTaskId: linkedTaskId ? parseInt(linkedTaskId) : undefined,
+        linkedHabitId: linkedHabitId ? parseInt(linkedHabitId) : undefined,
       };
       setEvents([...events, newEvent]);
     }
@@ -100,7 +167,30 @@ export default function Calendar() {
     setDeletingEventId(null);
   };
 
-  const filteredEvents = events.filter((event) => {
+  // Drag & Drop handlers
+  const handleDragStart = (e: DragEvent<HTMLDivElement>, event: Event) => {
+    setDraggedEvent(event);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e: DragEvent<HTMLButtonElement>, targetDate: string) => {
+    e.preventDefault();
+    if (draggedEvent && draggedEvent.date !== targetDate) {
+      setEvents(events.map(event => 
+        event.id === draggedEvent.id 
+          ? { ...event, date: targetDate }
+          : event
+      ));
+    }
+    setDraggedEvent(null);
+  };
+
+  const filteredEvents = allEvents.filter((event) => {
     const matchesSearch = !searchQuery || 
       event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -119,7 +209,7 @@ export default function Calendar() {
 
   // Функция для получения количества событий на день
   const getEventsCountForDate = (dateStr: string) => {
-    return events.filter(event => event.date === dateStr).length;
+    return allEvents.filter(event => event.date === dateStr).length;
   };
 
   // Генерация дней календаря
@@ -200,6 +290,61 @@ export default function Calendar() {
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="recurrence">Повторение</Label>
+                <Select name="recurrence" defaultValue={editingEvent?.recurrence || "none"}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите повторение" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Не повторяется</SelectItem>
+                    <SelectItem value="daily">Ежедневно</SelectItem>
+                    <SelectItem value="weekly">Еженедельно</SelectItem>
+                    <SelectItem value="monthly">Ежемесячно</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="recurrenceEndDate">Окончание повторения</Label>
+                <Input 
+                  id="recurrenceEndDate" 
+                  name="recurrenceEndDate" 
+                  type="date" 
+                  defaultValue={editingEvent?.recurrenceEndDate}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="linkedTaskId">Связанная задача</Label>
+                <Select name="linkedTaskId" defaultValue={editingEvent?.linkedTaskId?.toString()}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Не связано" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Не связано</SelectItem>
+                    {availableTasks.map(task => (
+                      <SelectItem key={task.id} value={task.id.toString()}>
+                        {task.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="linkedHabitId">Связанная привычка</Label>
+                <Select name="linkedHabitId" defaultValue={editingEvent?.linkedHabitId?.toString()}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Не связано" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Не связано</SelectItem>
+                    {availableHabits.map(habit => (
+                      <SelectItem key={habit.id} value={habit.id.toString()}>
+                        {habit.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="description">Описание</Label>
                 <Textarea id="description" name="description" defaultValue={editingEvent?.description} />
               </div>
@@ -251,11 +396,14 @@ export default function Calendar() {
                 <button
                   key={i}
                   onClick={() => item.day && setSelectedDay(item.date)}
+                  onDragOver={(e) => item.day && handleDragOver(e)}
+                  onDrop={(e) => item.day && handleDrop(e, item.date)}
                   disabled={!item.day}
                   className={`
                     aspect-square rounded-lg p-2 relative transition-all
                     ${item.day ? "hover:bg-muted cursor-pointer" : "cursor-default invisible"}
                     ${item.date === selectedDay ? "bg-primary text-primary-foreground font-bold ring-2 ring-primary ring-offset-2" : ""}
+                    ${draggedEvent && item.day ? "hover:ring-2 hover:ring-primary/50" : ""}
                   `}
                   style={{
                     backgroundColor:
@@ -312,7 +460,9 @@ export default function Calendar() {
               filteredEvents.map((event) => (
               <div
                 key={event.id}
-                className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors space-y-2"
+                draggable
+                onDragStart={(e) => handleDragStart(e, event)}
+                className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors space-y-2 cursor-move"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-muted-foreground">{event.time}</span>
@@ -327,6 +477,11 @@ export default function Calendar() {
                     >
                       {event.type === "meeting" ? "Встреча" : event.type === "task" ? "Задача" : "Привычка"}
                     </Badge>
+                    {event.recurrence && event.recurrence !== "none" && (
+                      <Badge variant="outline" className="bg-accent/10 text-accent-foreground">
+                        {event.recurrence === "daily" ? "Ежедневно" : event.recurrence === "weekly" ? "Еженедельно" : "Ежемесячно"}
+                      </Badge>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -346,6 +501,16 @@ export default function Calendar() {
                   </div>
                 </div>
                 <p className="font-medium">{event.title}</p>
+                {event.linkedTaskId && (
+                  <p className="text-xs text-muted-foreground">
+                    🔗 Задача: {availableTasks.find(t => t.id === event.linkedTaskId)?.title}
+                  </p>
+                )}
+                {event.linkedHabitId && (
+                  <p className="text-xs text-muted-foreground">
+                    🔗 Привычка: {availableHabits.find(h => h.id === event.linkedHabitId)?.name}
+                  </p>
+                )}
               </div>
               ))
             )}
