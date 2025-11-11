@@ -132,8 +132,8 @@ export default function Calendar() {
               description: formData.get("description") as string,
               recurrence,
               recurrenceEndDate: recurrence !== "none" ? formData.get("recurrenceEndDate") as string : undefined,
-              linkedTaskId: linkedTaskId ? parseInt(linkedTaskId) : undefined,
-              linkedHabitId: linkedHabitId ? parseInt(linkedHabitId) : undefined,
+              linkedTaskId: linkedTaskId && linkedTaskId !== "none" ? parseInt(linkedTaskId) : undefined,
+              linkedHabitId: linkedHabitId && linkedHabitId !== "none" ? parseInt(linkedHabitId) : undefined,
             }
           : event
       ));
@@ -149,8 +149,8 @@ export default function Calendar() {
         date: selectedDay,
         recurrence,
         recurrenceEndDate: recurrence !== "none" ? formData.get("recurrenceEndDate") as string : undefined,
-        linkedTaskId: linkedTaskId ? parseInt(linkedTaskId) : undefined,
-        linkedHabitId: linkedHabitId ? parseInt(linkedHabitId) : undefined,
+        linkedTaskId: linkedTaskId && linkedTaskId !== "none" ? parseInt(linkedTaskId) : undefined,
+        linkedHabitId: linkedHabitId && linkedHabitId !== "none" ? parseInt(linkedHabitId) : undefined,
       };
       setEvents([...events, newEvent]);
     }
@@ -325,7 +325,7 @@ export default function Calendar() {
                     <SelectValue placeholder="Не связано" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Не связано</SelectItem>
+                    <SelectItem value="none">Не связано</SelectItem>
                     {availableTasks.map(task => (
                       <SelectItem key={task.id} value={task.id.toString()}>
                         {task.title}
@@ -341,7 +341,7 @@ export default function Calendar() {
                     <SelectValue placeholder="Не связано" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Не связано</SelectItem>
+                    <SelectItem value="none">Не связано</SelectItem>
                     {availableHabits.map(habit => (
                       <SelectItem key={habit.id} value={habit.id.toString()}>
                         {habit.name}
