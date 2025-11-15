@@ -11,6 +11,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useAchievements } from "@/hooks/useAchievements";
 import { useActivityData } from "@/hooks/useActivityData";
+import { useCheckAchievements } from "@/hooks/useCheckAchievements";
 import { useState, useRef, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
@@ -30,6 +31,7 @@ const Profile = () => {
   const { data: achievements } = useAchievements();
   const { data: weekActivity } = useActivityData(7);
   const { data: monthActivity } = useActivityData(30);
+  const checkAchievements = useCheckAchievements();
   
   const [username, setUsername] = useState("");
   const [timezone, setTimezone] = useState("GMT+3");
@@ -41,6 +43,11 @@ const Profile = () => {
       setTimezone(profile.timezone || "GMT+3");
     }
   }, [profile]);
+
+  useEffect(() => {
+    // Check achievements when component mounts
+    checkAchievements.mutate();
+  }, []);
 
   const handleSaveProfile = () => {
     updateProfile({ username, timezone });
@@ -86,9 +93,19 @@ const Profile = () => {
           <h1 className="text-3xl font-bold text-foreground mb-2">Личный кабинет</h1>
           <p className="text-muted-foreground">Ваша статистика и достижения</p>
         </div>
-        <Badge variant="secondary" className="h-fit">
-          {earnedAchievements.length} достижений
-        </Badge>
+        <div className="flex gap-2">
+          <Badge variant="secondary" className="h-fit">
+            {earnedAchievements.length} достижений
+          </Badge>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => checkAchievements.mutate()}
+            disabled={checkAchievements.isPending}
+          >
+            {checkAchievements.isPending ? "Проверка..." : "Проверить достижения"}
+          </Button>
+        </div>
       </div>
 
       {!statsLoading && stats && (
