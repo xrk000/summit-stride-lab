@@ -62,25 +62,19 @@ export default function Layout() {
     <div className="flex h-screen bg-gradient-subtle">
       {/* Sidebar */}
       <aside className="w-64 bg-gradient-to-b from-card to-background border-r border-border shadow-lg flex flex-col">
-        <div className="p-6 border-b border-border flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-display font-bold bg-gradient-primary bg-clip-text text-transparent">
-              ProductiveMe
-            </h1>
-            <p className="text-xs text-muted-foreground mt-1">Ваша продуктивность</p>
-          </div>
+        <div className="p-4 border-b border-border">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="focus:outline-none">
-                <Avatar className="h-8 w-8 cursor-pointer hover:opacity-80 transition-opacity">
+                <Avatar className="h-12 w-12 cursor-pointer hover:opacity-80 transition-opacity">
                   <AvatarImage src={profile?.avatar_url || ""} alt={profile?.username || "User"} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                  <AvatarFallback className="bg-primary/10 text-primary text-lg">
                     {profile?.username?.[0]?.toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuItem onClick={() => navigate("/profile")}>
                 <User className="mr-2 h-4 w-4" />
                 Профиль
