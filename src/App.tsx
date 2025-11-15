@@ -12,6 +12,7 @@ import Habits from "./pages/Habits";
 import Projects from "./pages/Projects";
 import Analytics from "./pages/Analytics";
 import Profile from "./pages/Profile";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/auth" element={<Auth />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/calendar" element={<Calendar />} />
