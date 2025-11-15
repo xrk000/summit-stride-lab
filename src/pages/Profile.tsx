@@ -3,91 +3,148 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CheckCircle2, Calendar, FileText, Target, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CheckCircle2, Calendar, FileText, Target, Trophy, Star, FolderOpen, Upload } from "lucide-react";
+import { useProfile } from "@/hooks/useProfile";
+import { useUserStats } from "@/hooks/useUserStats";
+import { useAchievements } from "@/hooks/useAchievements";
+import { useActivityData } from "@/hooks/useActivityData";
+import { useState, useRef, useEffect } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+
+const iconMap: Record<string, any> = {
+  CheckCircle2,
+  Target,
+  Trophy,
+  Calendar,
+  Star,
+  FileText,
+  FolderOpen,
+};
 
 const Profile = () => {
-  // Временные данные - потом будем подключать к базе
-  const userStats = {
-    tasksCompleted: 45,
-    totalTasks: 60,
-    notesCreated: 28,
-    habitsTracked: 12,
-    projectsActive: 3,
-    calendarEvents: 24,
+  const { profile, updateProfile, uploadAvatar } = useProfile();
+  const { data: stats, isLoading: statsLoading } = useUserStats();
+  const { data: achievements } = useAchievements();
+  const { data: weekActivity } = useActivityData(7);
+  const { data: monthActivity } = useActivityData(30);
+  
+  const [username, setUsername] = useState("");
+  const [timezone, setTimezone] = useState("GMT+3");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (profile) {
+      setUsername(profile.username || "");
+      setTimezone(profile.timezone || "GMT+3");
+    }
+  }, [profile]);
+
+  const handleSaveProfile = () => {
+    updateProfile({ username, timezone });
   };
 
-  const completionRate = Math.round((userStats.tasksCompleted / userStats.totalTasks) * 100);
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadAvatar(file);
+    }
+  };
+
+  const completionRate = stats ? Math.round((stats.tasksCompleted / (stats.totalTasks || 1)) * 100) : 0;
+  const earnedAchievements = achievements?.filter(a => a.earned) || [];
+  const lockedAchievements = achievements?.filter(a => !a.earned) || [];
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
-      {/* Заголовок профиля */}
       <div className="flex items-center gap-6">
-        <Avatar className="h-24 w-24">
-          <AvatarImage src="" alt="User" />
-          <AvatarFallback className="text-2xl bg-primary/10 text-primary">UN</AvatarFallback>
-        </Avatar>
+        <div className="relative group">
+          <Avatar className="h-24 w-24 cursor-pointer" onClick={handleAvatarClick}>
+            <AvatarImage src={profile?.avatar_url || ""} alt="User" />
+            <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+              {profile?.username?.[0]?.toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={handleAvatarClick}>
+            <Upload className="h-6 w-6 text-white" />
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-foreground mb-2">Личный кабинет</h1>
           <p className="text-muted-foreground">Ваша статистика и достижения</p>
         </div>
         <Badge variant="secondary" className="h-fit">
-          Активный пользователь
+          {earnedAchievements.length} достижений
         </Badge>
       </div>
 
-      {/* Общая статистика */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Задачи</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{userStats.tasksCompleted}/{userStats.totalTasks}</div>
-            <p className="text-xs text-muted-foreground mt-1">Выполнено задач</p>
-            <Progress value={completionRate} className="mt-2" />
-          </CardContent>
-        </Card>
+      {!statsLoading && stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Задачи</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.tasksCompleted}/{stats.totalTasks}</div>
+              <p className="text-xs text-muted-foreground mt-1">Выполнено задач</p>
+              <Progress value={completionRate} className="mt-2" />
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Заметки</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{userStats.notesCreated}</div>
-            <p className="text-xs text-muted-foreground mt-1">Создано заметок</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Заметки</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.notesCreated}</div>
+              <p className="text-xs text-muted-foreground mt-1">Создано заметок</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">События</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{userStats.calendarEvents}</div>
-            <p className="text-xs text-muted-foreground mt-1">Запланировано событий</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">События</CardTitle>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.calendarEvents}</div>
+              <p className="text-xs text-muted-foreground mt-1">Запланировано событий</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Привычки</CardTitle>
-            <Target className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{userStats.habitsTracked}</div>
-            <p className="text-xs text-muted-foreground mt-1">Отслеживается привычек</p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Привычки</CardTitle>
+              <Target className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.habitsTracked}</div>
+              <p className="text-xs text-muted-foreground mt-1">Отслеживается привычек</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      {/* Детальная информация */}
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Обзор</TabsTrigger>
           <TabsTrigger value="achievements">Достижения</TabsTrigger>
+          <TabsTrigger value="activity">Активность</TabsTrigger>
           <TabsTrigger value="settings">Настройки</TabsTrigger>
         </TabsList>
 
@@ -95,7 +152,7 @@ const Profile = () => {
           <Card>
             <CardHeader>
               <CardTitle>Прогресс продуктивности</CardTitle>
-              <CardDescription>Ваши показатели за последнее время</CardDescription>
+              <CardDescription>Ваши показатели</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -105,45 +162,6 @@ const Profile = () => {
                 </div>
                 <Progress value={completionRate} />
               </div>
-              
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Активность привычек</span>
-                  <span className="text-sm text-muted-foreground">85%</span>
-                </div>
-                <Progress value={85} />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Планирование</span>
-                  <span className="text-sm text-muted-foreground">92%</span>
-                </div>
-                <Progress value={92} />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Активные проекты</CardTitle>
-              <CardDescription>Проекты в работе: {userStats.projectsActive}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <span className="font-medium">Дипломная работа</span>
-                  <Badge variant="outline">В процессе</Badge>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <span className="font-medium">Изучение React</span>
-                  <Badge variant="outline">В процессе</Badge>
-                </div>
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <span className="font-medium">Фитнес план</span>
-                  <Badge variant="outline">В процессе</Badge>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -152,23 +170,79 @@ const Profile = () => {
           <Card>
             <CardHeader>
               <CardTitle>Ваши достижения</CardTitle>
-              <CardDescription>Заработанные награды за продуктивность</CardDescription>
+              <CardDescription>Заработано: {earnedAchievements.length} из {achievements?.length || 0}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="flex flex-col items-center p-4 bg-primary/5 rounded-lg border border-primary/20">
-                  <TrendingUp className="h-8 w-8 text-primary mb-2" />
-                  <span className="text-sm font-medium text-center">Первые 10 задач</span>
-                </div>
-                <div className="flex flex-col items-center p-4 bg-primary/5 rounded-lg border border-primary/20">
-                  <Target className="h-8 w-8 text-primary mb-2" />
-                  <span className="text-sm font-medium text-center">Неделя привычек</span>
-                </div>
-                <div className="flex flex-col items-center p-4 bg-muted/50 rounded-lg border border-border opacity-50">
-                  <CheckCircle2 className="h-8 w-8 text-muted-foreground mb-2" />
-                  <span className="text-sm text-center text-muted-foreground">50 задач</span>
-                </div>
+                {earnedAchievements.map((achievement) => {
+                  const Icon = iconMap[achievement.icon];
+                  return (
+                    <div key={achievement.id} className="flex flex-col items-center p-4 bg-primary/5 rounded-lg border border-primary/20">
+                      {Icon && <Icon className="h-8 w-8 text-primary mb-2" />}
+                      <span className="text-sm font-medium text-center">{achievement.name}</span>
+                      <span className="text-xs text-muted-foreground text-center mt-1">{achievement.description}</span>
+                    </div>
+                  );
+                })}
+                {lockedAchievements.map((achievement) => {
+                  const Icon = iconMap[achievement.icon];
+                  return (
+                    <div key={achievement.id} className="flex flex-col items-center p-4 bg-muted/50 rounded-lg border border-border opacity-50">
+                      {Icon && <Icon className="h-8 w-8 text-muted-foreground mb-2" />}
+                      <span className="text-sm text-center text-muted-foreground">{achievement.name}</span>
+                      <span className="text-xs text-muted-foreground text-center mt-1">{achievement.description}</span>
+                    </div>
+                  );
+                })}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Активность за неделю</CardTitle>
+              <CardDescription>Последние 7 дней</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {weekActivity && (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={weekActivity}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="tasks" stroke="hsl(var(--primary))" name="Задачи" />
+                    <Line type="monotone" dataKey="notes" stroke="hsl(var(--accent))" name="Заметки" />
+                    <Line type="monotone" dataKey="habits" stroke="hsl(var(--secondary))" name="Привычки" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Активность за месяц</CardTitle>
+              <CardDescription>Последние 30 дней</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {monthActivity && (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={monthActivity}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="tasks" stroke="hsl(var(--primary))" name="Задачи" />
+                    <Line type="monotone" dataKey="notes" stroke="hsl(var(--accent))" name="Заметки" />
+                    <Line type="monotone" dataKey="habits" stroke="hsl(var(--secondary))" name="Привычки" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -177,33 +251,34 @@ const Profile = () => {
           <Card>
             <CardHeader>
               <CardTitle>Настройки профиля</CardTitle>
-              <CardDescription>Управление личными данными и предпочтениями</CardDescription>
+              <CardDescription>Управление личными данными</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Имя пользователя</label>
-                  <input
-                    type="text"
+                  <Label htmlFor="username">Имя пользователя</Label>
+                  <Input
+                    id="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     placeholder="Ваше имя"
-                    className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Email</label>
-                  <input
-                    type="email"
-                    placeholder="your@email.com"
-                    className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Часовой пояс</label>
-                  <select className="w-full mt-1 px-3 py-2 bg-background border border-input rounded-md">
-                    <option>GMT+3 (Москва)</option>
-                    <option>GMT+0 (UTC)</option>
+                  <Label htmlFor="timezone">Часовой пояс</Label>
+                  <select
+                    id="timezone"
+                    value={timezone}
+                    onChange={(e) => setTimezone(e.target.value)}
+                    className="w-full px-3 py-2 bg-background border border-input rounded-md"
+                  >
+                    <option value="GMT+3">GMT+3 (Москва)</option>
+                    <option value="GMT+0">GMT+0 (UTC)</option>
+                    <option value="GMT-5">GMT-5 (Нью-Йорк)</option>
+                    <option value="GMT+1">GMT+1 (Берлин)</option>
                   </select>
                 </div>
+                <Button onClick={handleSaveProfile}>Сохранить изменения</Button>
               </div>
             </CardContent>
           </Card>
