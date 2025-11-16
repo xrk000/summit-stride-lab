@@ -6,14 +6,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, Calendar, FileText, Target, Trophy, Star, FolderOpen, Upload } from "lucide-react";
+import { CheckCircle2, Calendar, FileText, Target, Trophy, Star, FolderOpen, Upload, Download } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useAchievements } from "@/hooks/useAchievements";
 import { useActivityData } from "@/hooks/useActivityData";
 import { useCheckAchievements } from "@/hooks/useCheckAchievements";
+import { useDataExport } from "@/hooks/useDataExport";
 import { useState, useRef, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const iconMap: Record<string, any> = {
   CheckCircle2,
@@ -32,9 +40,11 @@ const Profile = () => {
   const { data: weekActivity } = useActivityData(7);
   const { data: monthActivity } = useActivityData(30);
   const checkAchievements = useCheckAchievements();
+  const { exportToCSV, exportToPDF } = useDataExport();
   
   const [username, setUsername] = useState("");
   const [timezone, setTimezone] = useState("GMT+3");
+  const [exportType, setExportType] = useState<"all" | "tasks" | "notes" | "habits" | "projects" | "calendar">("all");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -107,6 +117,67 @@ const Profile = () => {
           </Button>
         </div>
       </div>
+
+      {/* Export Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5" />
+            Экспорт данных
+          </CardTitle>
+          <CardDescription>
+            Экспортируйте свои данные и статистику в различных форматах
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <Label htmlFor="export-type">Тип данных</Label>
+                <Select value={exportType} onValueChange={(value: any) => setExportType(value)}>
+                  <SelectTrigger id="export-type">
+                    <SelectValue placeholder="Выберите тип данных" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Все данные</SelectItem>
+                    <SelectItem value="tasks">Только задачи</SelectItem>
+                    <SelectItem value="notes">Только заметки</SelectItem>
+                    <SelectItem value="habits">Только привычки</SelectItem>
+                    <SelectItem value="projects">Только проекты</SelectItem>
+                    <SelectItem value="calendar">Только календарь</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => exportToCSV(exportType)}
+                variant="default"
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Экспорт в CSV
+              </Button>
+              <Button
+                onClick={() => exportToPDF(true)}
+                variant="secondary"
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Экспорт в PDF (со статистикой)
+              </Button>
+              <Button
+                onClick={() => exportToPDF(false)}
+                variant="outline"
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Экспорт в PDF (без статистики)
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {!statsLoading && stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
