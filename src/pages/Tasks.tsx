@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,378 +8,333 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Check } from "lucide-react";
+import { Plus, Search, Filter, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTasks } from "@/hooks/useTasks";
-import { useTags } from "@/hooks/useTags";
-import { useUserPreferences } from "@/hooks/useUserPreferences";
-import { TagInput } from "@/components/TagInput";
-import { FilterSort } from "@/components/FilterSort";
-import { FileUpload } from "@/components/FileUpload";
-import { format } from "date-fns";
+
+type Task = {
+  id: number;
+  title: string;
+  project?: string;
+  projectId?: number;
+  priority: "high" | "medium" | "low";
+  status: "active" | "completed";
+  deadline: string;
+  description?: string;
+};
 
 export default function Tasks() {
-  const { tasks, isLoading, createTask, updateTask, deleteTask, toggleTask } = useTasks();
-  const { getEntityTags } = useTags();
-  const { preferences, updatePreferences } = useUserPreferences();
-  
+  const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<any | null>(null);
-  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
-  const [taskTags, setTaskTags] = useState<Record<string, any[]>>({});
-  
-  const taskPrefs = preferences.tasks || {};
-  const sortBy = taskPrefs.sortBy || "created_at_desc";
-  const filterBy = taskPrefs.filterBy || "all";
-  const selectedTags = taskPrefs.selectedTags || [];
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  // Моковые проекты для выбора
+  const availableProjects = [
+    { id: 1, name: "Дипломная работа" },
+    { id: 2, name: "Проект А" },
+    { id: 3, name: "Личный сайт" },
+  ];
 
-  useEffect(() => {
-    loadTaskTags();
-  }, [tasks]);
-
-  const loadTaskTags = async () => {
-    const tags: Record<string, any[]> = {};
-    for (const task of tasks) {
-      tags[task.id] = await getEntityTags('task', task.id);
-    }
-    setTaskTags(tags);
-  };
-
-  const handleSortChange = (value: string) => {
-    updatePreferences({
-      ...preferences,
-      tasks: { ...taskPrefs, sortBy: value }
-    });
-  };
-
-  const handleFilterChange = (value: string) => {
-    updatePreferences({
-      ...preferences,
-      tasks: { ...taskPrefs, filterBy: value }
-    });
-  };
-
-  const handleTagsChange = (tags: string[]) => {
-    updatePreferences({
-      ...preferences,
-      tasks: { ...taskPrefs, selectedTags: tags }
-    });
-  };
+  const [tasks, setTasks] = useState<Task[]>([
+    { id: 1, title: "Написать отчет", project: "Работа", priority: "high", status: "active", deadline: "2024-11-15", description: "Подготовить квартальный отчет" },
+    { id: 2, title: "Обновить документацию", project: "Проект А", projectId: 2, priority: "medium", status: "active", deadline: "2024-11-16", description: "Обновить README и API документацию" },
+    { id: 3, title: "Код ревью", project: "Работа", priority: "low", status: "completed", deadline: "2024-11-10", description: "Проверить PR от коллеги" },
+    { id: 4, title: "Купить продукты", priority: "medium", status: "active", deadline: "2024-11-15", description: "Молоко, хлеб, яйца" },
+  ]);
 
   const handleAddTask = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const projectIdValue = formData.get("projectId") as string;
+    const projectId = projectIdValue && projectIdValue !== "none" ? parseInt(projectIdValue) : undefined;
+    const selectedProject = projectId ? availableProjects.find(p => p.id === projectId) : undefined;
     
-    const taskData = {
-      title: formData.get("title") as string,
-      description: formData.get("description") as string || null,
-      priority: formData.get("priority") as string || null,
-      due_date: formData.get("due_date") as string || null,
-      completed: false,
-      completed_at: null,
-    };
-
     if (editingTask) {
-      updateTask({ id: editingTask.id, ...taskData });
+      setTasks(tasks.map(task =>
+        task.id === editingTask.id
+          ? {
+              ...task,
+              title: formData.get("title") as string,
+              project: selectedProject?.name,
+              projectId: projectId,
+              priority: formData.get("priority") as "high" | "medium" | "low",
+              deadline: formData.get("deadline") as string,
+              description: formData.get("description") as string,
+            }
+          : task
+      ));
       setEditingTask(null);
     } else {
-      createTask(taskData);
+      const newTask: Task = {
+        id: Math.max(0, ...tasks.map(t => t.id)) + 1,
+        title: formData.get("title") as string,
+        project: selectedProject?.name,
+        projectId: projectId,
+        priority: formData.get("priority") as "high" | "medium" | "low",
+        status: "active",
+        deadline: formData.get("deadline") as string,
+        description: formData.get("description") as string,
+      };
+      setTasks([...tasks, newTask]);
     }
-    
     setIsDialogOpen(false);
     e.currentTarget.reset();
   };
 
-  const handleEditTask = (task: any) => {
+  const handleEditTask = (task: Task) => {
     setEditingTask(task);
     setIsDialogOpen(true);
   };
 
-  const handleDeleteTask = (id: string) => {
-    deleteTask(id);
+  const handleDeleteTask = (taskId: number) => {
+    setTasks(tasks.filter(task => task.id !== taskId));
     setDeletingTaskId(null);
   };
 
-  const getPriorityColor = (priority: string | null) => {
-    switch (priority) {
-      case "high": return "text-red-500";
-      case "medium": return "text-yellow-500";
-      case "low": return "text-green-500";
-      default: return "text-muted-foreground";
-    }
+  const toggleTaskStatus = (taskId: number) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId 
+        ? { ...task, status: task.status === "active" ? "completed" : "active" as "active" | "completed" }
+        : task
+    ));
   };
 
-  const sortTasks = (tasksToSort: any[]) => {
-    const sorted = [...tasksToSort];
-    switch (sortBy) {
-      case "created_at_desc":
-        return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      case "created_at_asc":
-        return sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-      case "due_date_asc":
-        return sorted.sort((a, b) => {
-          if (!a.due_date) return 1;
-          if (!b.due_date) return -1;
-          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-        });
-      case "due_date_desc":
-        return sorted.sort((a, b) => {
-          if (!a.due_date) return 1;
-          if (!b.due_date) return -1;
-          return new Date(b.due_date).getTime() - new Date(a.due_date).getTime();
-        });
-      case "priority":
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        return sorted.sort((a, b) => {
-          const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 3;
-          const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 3;
-          return aPriority - bPriority;
-        });
-      case "title":
-        return sorted.sort((a, b) => a.title.localeCompare(b.title));
-      default:
-        return sorted;
-    }
-  };
-
-  const filterTasks = (tasksToFilter: any[]) => {
-    let filtered = tasksToFilter;
-
-    if (filterBy === "active") {
-      filtered = filtered.filter(task => !task.completed);
-    } else if (filterBy === "completed") {
-      filtered = filtered.filter(task => task.completed);
-    } else if (filterBy === "overdue") {
-      filtered = filtered.filter(task => 
-        !task.completed && task.due_date && new Date(task.due_date) < new Date()
-      );
-    }
-
-    if (selectedTags.length > 0) {
-      filtered = filtered.filter(task => {
-        const tags = taskTags[task.id] || [];
-        return selectedTags.some(tagId => tags.some(tag => tag.id === tagId));
-      });
-    }
-
-    return filtered;
-  };
-
-  const filteredAndSortedTasks = sortTasks(filterTasks(tasks));
-
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-96">Загрузка...</div>;
-  }
+  const filteredTasks = tasks.filter((task) => {
+    const matchesFilter = filter === "all" || task.status === filter;
+    const matchesSearch = !searchQuery || 
+      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (task.project && task.project.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesFilter && matchesSearch;
+  });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold">Задачи</h1>
+    <div className="p-8 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Задачи</h1>
+          <p className="text-muted-foreground mt-1">Управляйте своими задачами и проектами</p>
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) setEditingTask(null);
         }}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Добавить задачу
+            <Button className="bg-primary">
+              <Plus className="h-4 w-4 mr-2" />
+              Новая задача
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingTask ? "Редактировать задачу" : "Новая задача"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddTask} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Название</Label>
-                <Input
-                  id="title"
-                  name="title"
-                  defaultValue={editingTask?.title}
-                  required
-                />
+                <Input id="title" name="title" defaultValue={editingTask?.title} required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="projectId">Проект (необязательно)</Label>
+                <Select name="projectId" defaultValue={editingTask?.projectId?.toString() || "none"}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Без проекта" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Без проекта</SelectItem>
+                    {availableProjects.map(project => (
+                      <SelectItem key={project.id} value={project.id.toString()}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="priority">Приоритет</Label>
+                <Select name="priority" defaultValue={editingTask?.priority} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите приоритет" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">Высокий</SelectItem>
+                    <SelectItem value="medium">Средний</SelectItem>
+                    <SelectItem value="low">Низкий</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="deadline">Дедлайн</Label>
+                <Input id="deadline" name="deadline" type="date" defaultValue={editingTask?.deadline} required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Описание</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  defaultValue={editingTask?.description || ""}
-                />
+                <Textarea id="description" name="description" defaultValue={editingTask?.description} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="priority">Приоритет</Label>
-                  <Select name="priority" defaultValue={editingTask?.priority || "medium"}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Низкий</SelectItem>
-                      <SelectItem value="medium">Средний</SelectItem>
-                      <SelectItem value="high">Высокий</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="due_date">Дедлайн</Label>
-                  <Input
-                    id="due_date"
-                    name="due_date"
-                    type="date"
-                    defaultValue={editingTask?.due_date || ""}
-                  />
-                </div>
-              </div>
-              {editingTask && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Теги</Label>
-                    <TagInput
-                      entityType="task"
-                      entityId={editingTask.id}
-                      selectedTags={taskTags[editingTask.id] || []}
-                      onTagsChange={loadTaskTags}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Файлы</Label>
-                    <FileUpload entityType="task" entityId={editingTask.id} />
-                  </div>
-                </>
-              )}
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => {
-                  setIsDialogOpen(false);
-                  setEditingTask(null);
-                }}>
-                  Отмена
-                </Button>
-                <Button type="submit">
-                  {editingTask ? "Сохранить" : "Создать"}
-                </Button>
-              </div>
+              <Button type="submit" className="w-full">
+                {editingTask ? "Сохранить" : "Добавить"}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <FilterSort
-        sortBy={sortBy}
-        onSortChange={handleSortChange}
-        filterBy={filterBy}
-        onFilterChange={handleFilterChange}
-        selectedTags={selectedTags}
-        onTagsChange={handleTagsChange}
-        sortOptions={[
-          { value: "created_at_desc", label: "Дата создания (новые)" },
-          { value: "created_at_asc", label: "Дата создания (старые)" },
-          { value: "due_date_asc", label: "Дедлайн (ближайшие)" },
-          { value: "due_date_desc", label: "Дедлайн (дальние)" },
-          { value: "priority", label: "Приоритет" },
-          { value: "title", label: "Название" },
-        ]}
-        filterOptions={[
-          { value: "all", label: "Все" },
-          { value: "active", label: "Активные" },
-          { value: "completed", label: "Завершенные" },
-          { value: "overdue", label: "Просроченные" },
-        ]}
-      />
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Поиск задач..." 
+            className="pl-9" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={filter === "all" ? "default" : "outline"}
+            onClick={() => setFilter("all")}
+          >
+            Все
+          </Button>
+          <Button
+            variant={filter === "active" ? "default" : "outline"}
+            onClick={() => setFilter("active")}
+          >
+            Активные
+          </Button>
+          <Button
+            variant={filter === "completed" ? "default" : "outline"}
+            onClick={() => setFilter("completed")}
+          >
+            Выполненные
+          </Button>
+        </div>
+        <Button variant="outline" size="icon">
+          <Filter className="h-4 w-4" />
+        </Button>
+      </div>
 
-      <div className="grid gap-4">
-        {filteredAndSortedTasks.map((task) => (
-          <Card key={task.id} className={cn(
-            "transition-all hover:shadow-md",
-            task.completed && "opacity-60"
-          )}>
+      <div className="space-y-3">
+        {filteredTasks.map((task) => (
+          <Card
+            key={task.id}
+            className={cn(
+              "shadow-md hover:shadow-lg transition-all",
+              task.status === "completed" && "opacity-60"
+            )}
+          >
             <CardContent className="p-4">
-              <div className="flex items-start gap-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-1"
-                  onClick={() => toggleTask(task.id)}
-                >
-                  <div className={cn(
-                    "w-5 h-5 rounded border-2 flex items-center justify-center",
-                    task.completed ? "bg-primary border-primary" : "border-muted-foreground"
-                  )}>
-                    {task.completed && <Check className="h-3 w-3 text-primary-foreground" />}
-                  </div>
-                </Button>
-                
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <h3 className={cn(
-                        "font-semibold",
-                        task.completed && "line-through"
-                      )}>
-                        {task.title}
-                      </h3>
-                      {task.description && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {task.description}
-                        </p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 flex-1">
+                  <input
+                    type="checkbox"
+                    checked={task.status === "completed"}
+                    onChange={() => toggleTaskStatus(task.id)}
+                    className="h-5 w-5 rounded border-border cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <h3
+                      className={cn(
+                        "font-semibold text-lg",
+                        task.status === "completed" && "line-through text-muted-foreground"
                       )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditTask(task)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeletingTaskId(task.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    >
+                      {task.title}
+                    </h3>
+                    <div className="flex items-center gap-3 mt-1">
+                      {task.project && (
+                        <Badge variant="outline" className="text-xs">
+                          {task.project}
+                        </Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground">{task.deadline}</span>
                     </div>
                   </div>
-
-                  <div className="flex flex-wrap gap-2 items-center text-sm">
-                    {task.priority && (
-                      <Badge variant="outline" className={getPriorityColor(task.priority)}>
-                        {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
-                      </Badge>
-                    )}
-                    {task.due_date && (
-                      <Badge variant="outline">
-                        {format(new Date(task.due_date), "dd.MM.yyyy")}
-                      </Badge>
-                    )}
-                    {taskTags[task.id]?.map((tag) => (
-                      <Badge key={tag.id} variant="secondary">
-                        {tag.name}
-                      </Badge>
-                    ))}
-                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge
+                    variant={
+                      task.priority === "high"
+                        ? "destructive"
+                        : task.priority === "medium"
+                        ? "default"
+                        : "secondary"
+                    }
+                  >
+                    {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleEditTask(task)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => setDeletingTaskId(task.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedTask(task)}
+                  >
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
         ))}
-
-        {filteredAndSortedTasks.length === 0 && (
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              Задачи не найдены
-            </CardContent>
-          </Card>
-        )}
       </div>
 
-      <AlertDialog open={!!deletingTaskId} onOpenChange={(open) => !open && setDeletingTaskId(null)}>
+      {/* Task Detail Dialog */}
+      <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedTask?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedTask?.project && (
+              <div>
+                <Label>Проект</Label>
+                <p className="text-sm mt-1">{selectedTask?.project}</p>
+              </div>
+            )}
+            <div>
+              <Label>Приоритет</Label>
+              <p className="text-sm mt-1">
+                {selectedTask?.priority === "high" ? "Высокий" : selectedTask?.priority === "medium" ? "Средний" : "Низкий"}
+              </p>
+            </div>
+            <div>
+              <Label>Дедлайн</Label>
+              <p className="text-sm mt-1">{selectedTask?.deadline}</p>
+            </div>
+            <div>
+              <Label>Описание</Label>
+              <p className="text-sm mt-1">{selectedTask?.description || "Нет описания"}</p>
+            </div>
+            <div>
+              <Label>Статус</Label>
+              <p className="text-sm mt-1">{selectedTask?.status === "active" ? "Активна" : "Выполнена"}</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingTaskId} onOpenChange={() => setDeletingTaskId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить задачу?</AlertDialogTitle>
             <AlertDialogDescription>
-              Это действие нельзя отменить. Задача будет удалена навсегда.
+              Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
