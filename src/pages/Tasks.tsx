@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +20,6 @@ import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 
 export default function Tasks() {
-  const location = useLocation();
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -35,14 +33,6 @@ export default function Tasks() {
   const { tasks, isLoading, createTask, updateTask, deleteTask, toggleTask } = useTasks();
   const { data: editingTaskTags } = useTaskTags(editingTask?.id || null);
   const { data: taskTagsMap } = useAllTaskTags();
-
-  // Применяем фильтр при переходе из Dashboard
-  useEffect(() => {
-    if (location.state?.filterDate) {
-      setFilterDate(location.state.filterDate);
-      setIsFilterOpen(true);
-    }
-  }, [location.state]);
 
   // Загружаем теги при редактировании задачи
   useEffect(() => {
