@@ -143,6 +143,37 @@ export default function Calendar() {
   const selectedDayTasks = filteredTasks.filter(task => task.due_date === selectedDay);
   const selectedDayHabits = getHabitsForDay(parseISO(selectedDay));
 
+  // Calculate daily activity for heatmap
+  const getDayActivity = (day: Date) => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    let count = 0;
+    
+    // Count events
+    count += filteredEvents.filter(event => event.date === dayStr).length;
+    
+    // Count tasks
+    count += filteredTasks.filter(task => task.due_date === dayStr).length;
+    
+    // Count completed habits
+    const completedHabitIds = habitEntries
+      .filter(entry => entry.date === dayStr && entry.completed)
+      .map(entry => entry.habit_id);
+    count += filteredHabits.filter(habit => completedHabitIds.includes(habit.id)).length;
+    
+    return count;
+  };
+
+  // Get heatmap color class based on activity level
+  const getHeatmapClass = (day: Date) => {
+    const count = getDayActivity(day);
+    
+    if (count === 0) return "";
+    if (count === 1) return "bg-primary/20";
+    if (count === 2) return "bg-primary/40";
+    if (count === 3) return "bg-primary/60";
+    return "bg-primary/80";
+  };
+
   if (isLoading) {
     return (
       <div className="p-8">
@@ -305,6 +336,7 @@ export default function Calendar() {
                 const isSelected = dayStr === selectedDay;
                 const isToday = isSameDay(day, new Date());
                 const hasItems = dayEvents.length > 0 || dayTasks.length > 0 || dayHabits.length > 0;
+                const heatmapClass = getHeatmapClass(day);
                 
                 return (
                   <button
@@ -312,6 +344,7 @@ export default function Calendar() {
                     onClick={() => setSelectedDay(dayStr)}
                     className={`
                       aspect-square p-2 rounded-lg border transition-colors
+                      ${heatmapClass}
                       ${isSelected ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'}
                       ${isToday && !isSelected ? 'border-primary' : 'border-border'}
                       ${!isSameMonth(day, currentDate) ? 'opacity-50' : ''}
