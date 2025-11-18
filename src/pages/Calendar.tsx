@@ -12,6 +12,9 @@ import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Search } from "lucide-
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useTasks } from "@/hooks/useTasks";
 import { useHabits } from "@/hooks/useHabits";
+import { useAllEventTags } from "@/hooks/useAllEventTags";
+import { useAllTaskTags } from "@/hooks/useAllTaskTags";
+import { useAllHabitTags } from "@/hooks/useAllHabitTags";
 import { format, parse, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -27,6 +30,9 @@ export default function Calendar() {
   const { events, isLoading, createEvent, updateEvent, deleteEvent } = useCalendarEvents();
   const { tasks } = useTasks();
   const { habits, habitEntries } = useHabits();
+  const { data: eventTagsMap } = useAllEventTags();
+  const { data: taskTagsMap } = useAllTaskTags();
+  const { data: habitTagsMap } = useAllHabitTags();
 
   const handleAddEvent = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -72,19 +78,28 @@ export default function Calendar() {
   };
 
   const filteredEvents = events.filter(event => {
-    const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTitle = event.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const eventTags = eventTagsMap?.get(event.id) || [];
+    const matchesTags = eventTags.some(tag => tag.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesSearch = matchesTitle || matchesTags;
     const matchesType = typeFilter === "all" || typeFilter === "events";
     return matchesSearch && matchesType;
   });
 
   const filteredTasks = tasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTitle = task.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const taskTags = taskTagsMap?.get(task.id) || [];
+    const matchesTags = taskTags.some(tag => tag.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesSearch = matchesTitle || matchesTags;
     const matchesType = typeFilter === "all" || typeFilter === "tasks";
     return matchesSearch && matchesType;
   });
 
   const filteredHabits = habits.filter(habit => {
-    const matchesSearch = habit.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesName = habit.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const habitTags = habitTagsMap?.get(habit.id) || [];
+    const matchesTags = habitTags.some(tag => tag.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesSearch = matchesName || matchesTags;
     const matchesType = typeFilter === "all" || typeFilter === "habits";
     return matchesSearch && matchesType;
   });
