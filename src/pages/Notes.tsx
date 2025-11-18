@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, FileText, Tag, Search, Eye, Pencil, Trash2, Paperclip } from "lucide-react";
 import { useNotes } from "@/hooks/useNotes";
 import { useTags } from "@/hooks/useTags";
-import { useAttachments } from "@/hooks/useAttachments";
 import { TagInput } from "@/components/TagInput";
 import { FileUpload } from "@/components/FileUpload";
 
@@ -23,26 +22,30 @@ const noteTemplates = [
 
 export default function Notes() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedNote, setSelectedNote] = useState<any>(null);
   const [editingNote, setEditingNote] = useState<any>(null);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-
   const { notes, isLoading, createNote, updateNote, deleteNote } = useNotes();
-  const { tags, addTagToEntity, removeTagFromEntity, getEntityTags } = useTags();
-  const { uploadAttachment, deleteAttachment, getEntityAttachments, getAttachmentUrl } = useAttachments();
+  const { getEntityTags } = useTags();
 
   const [noteTags, setNoteTags] = useState<Record<string, any[]>>({});
-  const [noteAttachments, setNoteAttachments] = useState<Record<string, any[]>>({});
 
-  // Load tags and attachments for notes
-  const loadNoteMetadata = async (noteId: string) => {
-    const tags = await getEntityTags("note", noteId);
-    const attachments = await getEntityAttachments("note", noteId);
-    setNoteTags(prev => ({ ...prev, [noteId]: tags }));
-    setNoteAttachments(prev => ({ ...prev, [noteId]: attachments }));
-  };
+  // Load tags for a note
+  useEffect(() => {
+    const loadAllTags = async () => {
+      const tagsMap: Record<string, any[]> = {};
+      for (const note of notes) {
+        const tags = await getEntityTags("note", note.id);
+        tagsMap[note.id] = tags;
+      }
+      setNoteTags(tagsMap);
+    };
+    if (notes.length > 0) {
+      loadAllTags();
+    }
+  }, [notes, getEntityTags]);
 
   const handleAddNote = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -61,15 +64,12 @@ export default function Notes() {
     }
     
     setIsDialogOpen(false);
-    setSelectedTags([]);
     e.currentTarget.reset();
   };
 
-  const handleEditNote = async (note: any) => {
+  const handleEditNote = (note: any) => {
     setEditingNote(note);
     setIsDialogOpen(true);
-    await loadNoteMetadata(note.id);
-    setSelectedTags((noteTags[note.id] || []).map((t: any) => t.id));
   };
 
   const handleDeleteNote = (noteId: string) => {
@@ -83,19 +83,9 @@ export default function Notes() {
     }
   };
 
-  const handleViewNote = async (note: any) => {
+  const handleViewNote = (note: any) => {
     setSelectedNote(note);
-    await loadNoteMetadata(note.id);
-  };
-
-  const handleFileUpload = async (file: File, noteId: string) => {
-    await uploadAttachment(file, "note", noteId);
-    await loadNoteMetadata(noteId);
-  };
-
-  const handleFileDelete = async (attachmentId: string, noteId: string) => {
-    await deleteAttachment(attachmentId);
-    await loadNoteMetadata(noteId);
+    setIsViewDialogOpen(true);
   };
 
   const filteredNotes = notes.filter(note => {
@@ -112,7 +102,6 @@ export default function Notes() {
       weekAgo.setDate(weekAgo.getDate() - 7);
       return noteDate >= weekAgo;
     }).length,
-    withAttachments: Object.values(noteAttachments).filter(a => a.length > 0).length,
   };
 
   if (isLoading) {
@@ -133,10 +122,7 @@ export default function Notes() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
-          if (!open) {
-            setEditingNote(null);
-            setSelectedTags([]);
-          }
+          if (!open) setEditingNote(null);
         }}>
           <DialogTrigger asChild>
             <Button className="bg-primary">
@@ -169,24 +155,25 @@ export default function Notes() {
                   className="min-h-[200px]"
                 />
               </div>
-              <div>
-                <Label>Теги</Label>
-                <TagInput
-                  selectedTags={selectedTags}
-                  onTagsChange={setSelectedTags}
-                  availableTags={tags}
-                />
-              </div>
               {editingNote && (
-                <div>
-                  <Label>Вложения</Label>
-                  <FileUpload
-                    onFileSelect={(file) => handleFileUpload(file, editingNote.id)}
-                    attachments={noteAttachments[editingNote.id] || []}
-                    onDeleteAttachment={(id) => handleFileDelete(id, editingNote.id)}
-                    getAttachmentUrl={getAttachmentUrl}
-                  />
-                </div>
+                <>
+                  <div>
+                    <Label>Теги</Label>
+                    <TagInput
+                      entityType="note"
+                      entityId={editingNote.id}
+                      selectedTags={noteTags[editingNote.id] || []}
+                      onTagsChange={async () => {
+                        const tags = await getEntityTags("note", editingNote.id);
+                        setNoteTags(prev => ({ ...prev, [editingNote.id]: tags }));
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label>Вложения</Label>
+                    <FileUpload entityType="note" entityId={editingNote.id} />
+                  </div>
+                </>
               )}
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -229,10 +216,12 @@ export default function Notes() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">С вложениями</p>
-                <p className="text-2xl font-bold">{stats.withAttachments}</p>
+                <p className="text-sm text-muted-foreground">С тегами</p>
+                <p className="text-2xl font-bold">
+                  {Object.values(noteTags).filter(t => t.length > 0).length}
+                </p>
               </div>
-              <Paperclip className="h-8 w-8 text-accent opacity-50" />
+              <Tag className="h-8 w-8 text-accent opacity-50" />
             </div>
           </CardContent>
         </Card>
@@ -305,13 +294,7 @@ export default function Notes() {
               <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
                 {note.content || "Нет содержания"}
               </p>
-              {noteAttachments[note.id]?.length > 0 && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-                  <Paperclip className="h-3 w-3" />
-                  {noteAttachments[note.id].length} файл(ов)
-                </div>
-              )}
-              <div className="flex flex-wrap gap-1">
+              <div className="flex flex-wrap gap-1 mb-2">
                 {(noteTags[note.id] || []).map((tag: any) => (
                   <Badge key={tag.id} variant="secondary" className="text-xs">
                     <Tag className="h-3 w-3 mr-1" />
@@ -328,7 +311,7 @@ export default function Notes() {
       </div>
 
       {/* View Note Dialog */}
-      <Dialog open={!!selectedNote} onOpenChange={() => setSelectedNote(null)}>
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedNote?.title}</DialogTitle>
@@ -337,30 +320,17 @@ export default function Notes() {
             <div className="prose prose-sm max-w-none">
               <p className="whitespace-pre-wrap">{selectedNote?.content}</p>
             </div>
-            {noteAttachments[selectedNote?.id]?.length > 0 && (
+            {(noteTags[selectedNote?.id] || []).length > 0 && (
               <div>
-                <h4 className="font-semibold mb-2">Вложения</h4>
-                <div className="space-y-2">
-                  {noteAttachments[selectedNote.id].map((attachment: any) => (
-                    <div key={attachment.id} className="flex items-center gap-2 p-2 border rounded">
-                      <Paperclip className="h-4 w-4" />
-                      <span className="text-sm flex-1">{attachment.file_name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {(attachment.file_size / 1024).toFixed(1)} KB
-                      </span>
-                    </div>
+                <h4 className="font-semibold mb-2">Теги</h4>
+                <div className="flex flex-wrap gap-1">
+                  {noteTags[selectedNote.id].map((tag: any) => (
+                    <Badge key={tag.id} variant="secondary">
+                      <Tag className="h-3 w-3 mr-1" />
+                      {tag.name}
+                    </Badge>
                   ))}
                 </div>
-              </div>
-            )}
-            {(noteTags[selectedNote?.id] || []).length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {noteTags[selectedNote.id].map((tag: any) => (
-                  <Badge key={tag.id} variant="secondary">
-                    <Tag className="h-3 w-3 mr-1" />
-                    {tag.name}
-                  </Badge>
-                ))}
               </div>
             )}
           </div>
