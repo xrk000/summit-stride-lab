@@ -26,8 +26,7 @@ export default function Projects() {
 
   const { projects, isLoading, createProject, updateProject, deleteProject } = useProjects();
   const { tasks } = useTasks();
-  const { projectTasks, addTaskToProject, removeTaskFromProject } = useProjectTasks(selectedProjectForTask || undefined);
-  const [projectTasks, setProjectTasks] = useState<Record<string, string[]>>({});
+  const { projectTasks, addTaskToProject, removeTaskFromProject } = useProjectTasks(selectedProjectForTasks?.id || undefined);
 
   const handleAddProject = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
