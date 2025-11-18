@@ -1,148 +1,141 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, FileText, Calendar as CalendarIcon, Pencil, Trash2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, FileText, Tag, Search, Eye, Pencil, Trash2, Paperclip } from "lucide-react";
+import { useNotes } from "@/hooks/useNotes";
+import { useTags } from "@/hooks/useTags";
+import { useAttachments } from "@/hooks/useAttachments";
+import { TagInput } from "@/components/TagInput";
+import { FileUpload } from "@/components/FileUpload";
 
-type Note = {
-  id: number;
-  title: string;
-  preview: string;
-  tags: string[];
-  date: string;
-  words: number;
-  content?: string;
-};
+const noteTemplates = [
+  { id: "meeting", name: "Протокол встречи", icon: "📝" },
+  { id: "idea", name: "Идея", icon: "💡" },
+  { id: "todo", name: "Чек-лист", icon: "✅" },
+  { id: "research", name: "Исследование", icon: "🔍" },
+];
 
 export default function Notes() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
-  const [editingNote, setEditingNote] = useState<Note | null>(null);
-  const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [selectedNote, setSelectedNote] = useState<any>(null);
+  const [editingNote, setEditingNote] = useState<any>(null);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  
-  const templates = [
-    { id: 1, name: "Конспект лекций", icon: "📝", color: "primary", template: "Тема:\n\nОсновные пункты:\n1. \n2. \n3. \n\nВыводы:" },
-    { id: 2, name: "Список продуктов", icon: "🛒", color: "success", template: "Продукты:\n☐ \n☐ \n☐ " },
-    { id: 3, name: "Идеи проекта", icon: "💡", color: "warning", template: "Название проекта:\n\nОписание:\n\nЦели:\n-\n-\n\nЗадачи:\n-\n-" },
-    { id: 4, name: "Встреча", icon: "🤝", color: "accent", template: "Дата встречи:\n\nУчастники:\n-\n-\n\nПовестка:\n1.\n2.\n\nРешения:" },
-  ];
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  const [notes, setNotes] = useState<Note[]>([
-    {
-      id: 1,
-      title: "Конспект: Веб-разработка",
-      preview: "React компоненты, хуки, state management...",
-      tags: ["учеба", "программирование"],
-      date: "Сегодня, 10:30",
-      words: 456,
-      content: "React компоненты, хуки, state management, useEffect, useState...",
-    },
-    {
-      id: 2,
-      title: "Продукты на неделю",
-      preview: "Молоко, хлеб, яйца, овощи...",
-      tags: ["личное", "покупки"],
-      date: "Вчера, 18:20",
-      words: 42,
-      content: "Молоко, хлеб, яйца, овощи, фрукты, мясо",
-    },
-    {
-      id: 3,
-      title: "Идеи для дипломного проекта",
-      preview: "Система управления продуктивностью с интеграциями...",
-      tags: ["работа", "идеи", "проект"],
-      date: "3 дня назад",
-      words: 234,
-      content: "Система управления продуктивностью с интеграциями календарей, заметок и задач",
-    },
-  ]);
+  const { notes, isLoading, createNote, updateNote, deleteNote } = useNotes();
+  const { tags, addTagToEntity, removeTagFromEntity, getEntityTags } = useTags();
+  const { uploadAttachment, deleteAttachment, getEntityAttachments, getAttachmentUrl } = useAttachments();
+
+  const [noteTags, setNoteTags] = useState<Record<string, any[]>>({});
+  const [noteAttachments, setNoteAttachments] = useState<Record<string, any[]>>({});
+
+  // Load tags and attachments for notes
+  const loadNoteMetadata = async (noteId: string) => {
+    const tags = await getEntityTags("note", noteId);
+    const attachments = await getEntityAttachments("note", noteId);
+    setNoteTags(prev => ({ ...prev, [noteId]: tags }));
+    setNoteAttachments(prev => ({ ...prev, [noteId]: attachments }));
+  };
 
   const handleAddNote = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const content = formData.get("content") as string;
-    const wordCount = content.trim().split(/\s+/).length;
-    const tags = (formData.get("tags") as string).split(",").map(t => t.trim()).filter(Boolean);
     
+    const noteData = {
+      title: formData.get("title") as string,
+      content: formData.get("content") as string,
+    };
+
     if (editingNote) {
-      setNotes(notes.map(note =>
-        note.id === editingNote.id
-          ? {
-              ...note,
-              title: formData.get("title") as string,
-              preview: content.substring(0, 50) + "...",
-              tags,
-              words: wordCount,
-              content,
-            }
-          : note
-      ));
+      updateNote({ id: editingNote.id, ...noteData });
       setEditingNote(null);
     } else {
-      const newNote: Note = {
-        id: Math.max(0, ...notes.map(n => n.id)) + 1,
-        title: formData.get("title") as string,
-        preview: content.substring(0, 50) + "...",
-        tags,
-        date: "Только что",
-        words: wordCount,
-        content,
-      };
-      setNotes([newNote, ...notes]);
+      createNote(noteData);
     }
+    
     setIsDialogOpen(false);
-    setSelectedTemplate(null);
+    setSelectedTags([]);
     e.currentTarget.reset();
   };
 
-  const handleEditNote = (note: Note) => {
+  const handleEditNote = async (note: any) => {
     setEditingNote(note);
     setIsDialogOpen(true);
+    await loadNoteMetadata(note.id);
+    setSelectedTags((noteTags[note.id] || []).map((t: any) => t.id));
   };
 
-  const handleDeleteNote = (noteId: number) => {
-    setNotes(notes.filter(note => note.id !== noteId));
-    setDeletingNoteId(null);
+  const handleDeleteNote = (noteId: string) => {
+    setDeletingNoteId(noteId);
   };
 
-  const handleTemplateSelect = (template: string) => {
-    setSelectedTemplate(template);
-    setIsDialogOpen(true);
+  const confirmDelete = () => {
+    if (deletingNoteId) {
+      deleteNote(deletingNoteId);
+      setDeletingNoteId(null);
+    }
   };
+
+  const handleViewNote = async (note: any) => {
+    setSelectedNote(note);
+    await loadNoteMetadata(note.id);
+  };
+
+  const handleFileUpload = async (file: File, noteId: string) => {
+    await uploadAttachment(file, "note", noteId);
+    await loadNoteMetadata(noteId);
+  };
+
+  const handleFileDelete = async (attachmentId: string, noteId: string) => {
+    await deleteAttachment(attachmentId);
+    await loadNoteMetadata(noteId);
+  };
+
+  const filteredNotes = notes.filter(note => {
+    const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesSearch;
+  });
 
   const stats = {
-    totalNotes: 15,
-    totalWords: 3421,
-    popularTags: ["работа", "учеба", "личное"],
+    total: notes.length,
+    thisWeek: notes.filter(n => {
+      const noteDate = new Date(n.created_at);
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return noteDate >= weekAgo;
+    }).length,
+    withAttachments: Object.values(noteAttachments).filter(a => a.length > 0).length,
   };
 
-  const filteredNotes = notes.filter((note) => {
-    if (!searchQuery) return true;
-    return note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      note.preview.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      note.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()));
-  });
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <p className="text-muted-foreground">Загрузка заметок...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Заметки</h1>
-          <p className="text-muted-foreground mt-1">Фиксируйте идеи и важную информацию</p>
+          <h1 className="text-4xl font-bold text-foreground">Заметки</h1>
+          <p className="text-muted-foreground mt-1">Управляйте своими идеями и информацией</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) {
-            setSelectedTemplate(null);
             setEditingNote(null);
+            setSelectedTags([]);
           }
         }}>
           <DialogTrigger asChild>
@@ -156,32 +149,53 @@ export default function Notes() {
               <DialogTitle>{editingNote ? "Редактировать заметку" : "Новая заметка"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddNote} className="space-y-4">
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="title">Название</Label>
-                <Input id="title" name="title" defaultValue={editingNote?.title} required />
+                <Input
+                  id="title"
+                  name="title"
+                  defaultValue={editingNote?.title}
+                  placeholder="Введите название заметки"
+                  required
+                />
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="content">Содержание</Label>
-                <Textarea 
-                  id="content" 
-                  name="content" 
-                  rows={10} 
-                  defaultValue={editingNote?.content || selectedTemplate || ""}
-                  required 
+                <Textarea
+                  id="content"
+                  name="content"
+                  defaultValue={editingNote?.content}
+                  placeholder="Напишите содержание заметки..."
+                  className="min-h-[200px]"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="tags">Теги (через запятую)</Label>
-                <Input 
-                  id="tags" 
-                  name="tags" 
-                  defaultValue={editingNote?.tags.join(", ")}
-                  placeholder="работа, личное, идеи" 
+              <div>
+                <Label>Теги</Label>
+                <TagInput
+                  selectedTags={selectedTags}
+                  onTagsChange={setSelectedTags}
+                  availableTags={tags}
                 />
               </div>
-              <Button type="submit" className="w-full">
-                {editingNote ? "Сохранить" : "Создать заметку"}
-              </Button>
+              {editingNote && (
+                <div>
+                  <Label>Вложения</Label>
+                  <FileUpload
+                    onFileSelect={(file) => handleFileUpload(file, editingNote.id)}
+                    attachments={noteAttachments[editingNote.id] || []}
+                    onDeleteAttachment={(id) => handleFileDelete(id, editingNote.id)}
+                    getAttachmentUrl={getAttachmentUrl}
+                  />
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Отмена
+                </Button>
+                <Button type="submit">
+                  {editingNote ? "Сохранить" : "Создать"}
+                </Button>
+              </div>
             </form>
           </DialogContent>
         </Dialog>
@@ -189,172 +203,182 @@ export default function Notes() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="shadow-md">
+        <Card className="shadow-elegant">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Всего заметок</p>
-                <p className="text-2xl font-bold">{stats.totalNotes}</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
               </div>
               <FileText className="h-8 w-8 text-primary opacity-50" />
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-md">
+        <Card className="shadow-elegant">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Всего слов</p>
-                <p className="text-2xl font-bold">{stats.totalWords.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">За эту неделю</p>
+                <p className="text-2xl font-bold">{stats.thisWeek}</p>
               </div>
-              <div className="text-4xl opacity-50">📝</div>
+              <Plus className="h-8 w-8 text-success opacity-50" />
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-md">
+        <Card className="shadow-elegant">
           <CardContent className="p-4">
-            <div>
-              <p className="text-sm text-muted-foreground mb-2">Популярные теги</p>
-              <div className="flex flex-wrap gap-1">
-                {stats.popularTags.map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-xs">
-                    #{tag}
-                  </Badge>
-                ))}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">С вложениями</p>
+                <p className="text-2xl font-bold">{stats.withAttachments}</p>
               </div>
+              <Paperclip className="h-8 w-8 text-accent opacity-50" />
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Templates */}
-      <Card className="shadow-md">
-        <CardHeader>
-          <CardTitle className="text-lg">Шаблоны заметок</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {templates.map((template) => (
-              <Button
-                key={template.id}
-                variant="outline"
-                className="h-auto py-4 flex flex-col gap-2 hover:bg-muted"
-                onClick={() => handleTemplateSelect(template.template)}
-              >
-                <span className="text-2xl">{template.icon}</span>
-                <span className="text-sm">{template.name}</span>
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div>
+        <h3 className="text-sm font-semibold mb-3">Шаблоны</h3>
+        <div className="flex gap-2 flex-wrap">
+          {noteTemplates.map((template) => (
+            <Button
+              key={template.id}
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsDialogOpen(true);
+              }}
+            >
+              <span className="mr-2">{template.icon}</span>
+              {template.name}
+            </Button>
+          ))}
+        </div>
+      </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input 
-          placeholder="Поиск по заметкам и тегам..." 
-          className="pl-9"
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Поиск по заметкам..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
         />
       </div>
 
       {/* Notes List */}
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredNotes.map((note) => (
-          <Card 
-            key={note.id} 
-            className="shadow-md hover:shadow-lg transition-all"
-          >
-            <CardContent className="p-5">
-              <div className="space-y-3">
-                <div>
-                  <div className="flex items-start justify-between gap-4 mb-1">
-                    <h3 className="font-semibold text-lg flex-1 cursor-pointer" onClick={() => setSelectedNote(note)}>
-                      {note.title}
-                    </h3>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleEditNote(note)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setDeletingNoteId(note.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-muted-foreground text-sm cursor-pointer" onClick={() => setSelectedNote(note)}>
-                    {note.preview}
-                  </p>
+          <Card key={note.id} className="shadow-elegant hover:shadow-glow transition-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-start justify-between">
+                <span className="line-clamp-1">{note.title}</span>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleViewNote(note)}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleEditNote(note)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDeleteNote(note.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {note.tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        #{tag}
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <CalendarIcon className="h-3 w-3" />
-                      {note.date}
-                    </span>
-                    <span>{note.words} слов</span>
-                  </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
+                {note.content || "Нет содержания"}
+              </p>
+              {noteAttachments[note.id]?.length > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
+                  <Paperclip className="h-3 w-3" />
+                  {noteAttachments[note.id].length} файл(ов)
                 </div>
+              )}
+              <div className="flex flex-wrap gap-1">
+                {(noteTags[note.id] || []).map((tag: any) => (
+                  <Badge key={tag.id} variant="secondary" className="text-xs">
+                    <Tag className="h-3 w-3 mr-1" />
+                    {tag.name}
+                  </Badge>
+                ))}
               </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {new Date(note.updated_at).toLocaleDateString('ru-RU')}
+              </p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Note Detail Dialog */}
+      {/* View Note Dialog */}
       <Dialog open={!!selectedNote} onOpenChange={() => setSelectedNote(null)}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedNote?.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              {selectedNote?.tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-xs">
-                  #{tag}
-                </Badge>
-              ))}
+            <div className="prose prose-sm max-w-none">
+              <p className="whitespace-pre-wrap">{selectedNote?.content}</p>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {selectedNote?.date} • {selectedNote?.words} слов
-            </div>
-            <div className="whitespace-pre-wrap text-sm">
-              {selectedNote?.content}
-            </div>
+            {noteAttachments[selectedNote?.id]?.length > 0 && (
+              <div>
+                <h4 className="font-semibold mb-2">Вложения</h4>
+                <div className="space-y-2">
+                  {noteAttachments[selectedNote.id].map((attachment: any) => (
+                    <div key={attachment.id} className="flex items-center gap-2 p-2 border rounded">
+                      <Paperclip className="h-4 w-4" />
+                      <span className="text-sm flex-1">{attachment.file_name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {(attachment.file_size / 1024).toFixed(1)} KB
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {(noteTags[selectedNote?.id] || []).length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {noteTags[selectedNote.id].map((tag: any) => (
+                  <Badge key={tag.id} variant="secondary">
+                    <Tag className="h-3 w-3 mr-1" />
+                    {tag.name}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation */}
       <AlertDialog open={!!deletingNoteId} onOpenChange={() => setDeletingNoteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить заметку?</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить эту заметку? Это действие нельзя отменить.
+              Это действие нельзя отменить. Заметка будет удалена навсегда.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deletingNoteId && handleDeleteNote(deletingNoteId)}>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive">
               Удалить
             </AlertDialogAction>
           </AlertDialogFooter>

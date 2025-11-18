@@ -1,152 +1,136 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, TrendingUp, Calendar, Check, Pencil, Trash2, Search } from "lucide-react";
-
-type Habit = {
-  id: number;
-  name: string;
-  description: string;
-  streak: number;
-  goal: number;
-  completedToday: boolean;
-  weekProgress: boolean[];
-  category: string;
-};
+import { Plus, TrendingUp, CheckCircle2, Circle, Pencil, Trash2, Search, Calendar } from "lucide-react";
+import { useHabits } from "@/hooks/useHabits";
+import { cn } from "@/lib/utils";
+import { format, startOfWeek, addDays, subWeeks, isToday } from "date-fns";
+import { ru } from "date-fns/locale";
 
 export default function Habits() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
-  const [deletingHabitId, setDeletingHabitId] = useState<number | null>(null);
+  const [editingHabit, setEditingHabit] = useState<any>(null);
+  const [deletingHabitId, setDeletingHabitId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [habits, setHabits] = useState<Habit[]>([
-    {
-      id: 1,
-      name: "Медитация",
-      description: "10 минут каждое утро",
-      streak: 7,
-      goal: 30,
-      completedToday: true,
-      weekProgress: [true, true, true, true, true, true, true],
-      category: "Здоровье",
-    },
-    {
-      id: 2,
-      name: "Чтение",
-      description: "30 страниц в день",
-      streak: 14,
-      goal: 100,
-      completedToday: true,
-      weekProgress: [true, true, true, true, true, true, true],
-      category: "Развитие",
-    },
-    {
-      id: 3,
-      name: "Тренировка",
-      description: "1 час спорта",
-      streak: 3,
-      goal: 30,
-      completedToday: false,
-      weekProgress: [true, false, true, true, false, false, false],
-      category: "Здоровье",
-    },
-    {
-      id: 4,
-      name: "Изучение языка",
-      description: "Duolingo урок",
-      streak: 21,
-      goal: 100,
-      completedToday: false,
-      weekProgress: [true, true, true, true, true, true, false],
-      category: "Развитие",
-    },
-  ]);
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { locale: ru }));
 
-  const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+  const { habits, habitEntries, isLoading, createHabit, updateHabit, deleteHabit, toggleHabitEntry } = useHabits();
 
   const handleAddHabit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
+    const habitData = {
+      name: formData.get("name") as string,
+      description: formData.get("description") as string,
+      frequency: formData.get("frequency") as string,
+    };
+
     if (editingHabit) {
-      setHabits(habits.map(habit =>
-        habit.id === editingHabit.id
-          ? {
-              ...habit,
-              name: formData.get("name") as string,
-              description: formData.get("description") as string,
-              goal: parseInt(formData.get("goal") as string),
-              category: formData.get("category") as string,
-            }
-          : habit
-      ));
+      updateHabit({ id: editingHabit.id, ...habitData });
       setEditingHabit(null);
     } else {
-      const newHabit: Habit = {
-        id: Math.max(0, ...habits.map(h => h.id)) + 1,
-        name: formData.get("name") as string,
-        description: formData.get("description") as string,
-        streak: 0,
-        goal: parseInt(formData.get("goal") as string),
-        completedToday: false,
-        weekProgress: [false, false, false, false, false, false, false],
-        category: formData.get("category") as string,
-      };
-      setHabits([...habits, newHabit]);
+      createHabit(habitData);
     }
+    
     setIsDialogOpen(false);
     e.currentTarget.reset();
   };
 
-  const handleEditHabit = (habit: Habit) => {
+  const handleEditHabit = (habit: any) => {
     setEditingHabit(habit);
     setIsDialogOpen(true);
   };
 
-  const handleDeleteHabit = (habitId: number) => {
-    setHabits(habits.filter(habit => habit.id !== habitId));
-    setDeletingHabitId(null);
+  const handleDeleteHabit = (habitId: string) => {
+    setDeletingHabitId(habitId);
   };
 
-  const toggleHabitCompletion = (habitId: number) => {
-    setHabits(habits.map(habit => {
-      if (habit.id === habitId) {
-        const newCompleted = !habit.completedToday;
-        const newStreak = newCompleted ? habit.streak + 1 : Math.max(0, habit.streak - 1);
-        const newWeekProgress = [...habit.weekProgress];
-        newWeekProgress[6] = newCompleted; // Today is Sunday (last day)
-        return {
-          ...habit,
-          completedToday: newCompleted,
-          streak: newStreak,
-          weekProgress: newWeekProgress,
-        };
+  const confirmDelete = () => {
+    if (deletingHabitId) {
+      deleteHabit(deletingHabitId);
+      setDeletingHabitId(null);
+    }
+  };
+
+  const handleToggleHabit = (habitId: string, date: Date) => {
+    toggleHabitEntry({ habitId, date: format(date, 'yyyy-MM-dd') });
+  };
+
+  const isHabitCompleted = (habitId: string, date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const entry = habitEntries.find(
+      e => e.habit_id === habitId && e.date === dateStr
+    );
+    return entry?.completed || false;
+  };
+
+  const getHabitStreak = (habitId: string) => {
+    const entries = habitEntries
+      .filter(e => e.habit_id === habitId && e.completed)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    let streak = 0;
+    let currentDate = new Date();
+    
+    for (const entry of entries) {
+      const entryDate = new Date(entry.date);
+      const diffDays = Math.floor((currentDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === streak) {
+        streak++;
+      } else {
+        break;
       }
-      return habit;
-    }));
+    }
+    
+    return streak;
   };
 
-  const filteredHabits = habits.filter((habit) => {
-    if (!searchQuery) return true;
-    return habit.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      habit.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      habit.category.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+  const getWeekProgress = (habitId: string) => {
+    const weekDates = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+    const completed = weekDates.filter(date => isHabitCompleted(habitId, date)).length;
+    return (completed / 7) * 100;
+  };
+
+  const filteredHabits = habits.filter(habit =>
+    habit.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (habit.description && habit.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const stats = {
+    total: habits.length,
+    completedToday: habits.filter(h => isHabitCompleted(h.id, new Date())).length,
+    averageProgress: habits.length > 0 
+      ? habits.reduce((sum, h) => sum + getWeekProgress(h.id), 0) / habits.length 
+      : 0,
+  };
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <p className="text-muted-foreground">Загрузка привычек...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Привычки</h1>
-          <p className="text-muted-foreground mt-1">Отслеживайте свой прогресс</p>
+          <h1 className="text-4xl font-bold text-foreground">Трекер привычек</h1>
+          <p className="text-muted-foreground mt-1">Отслеживайте свой прогресс каждый день</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
@@ -163,203 +147,220 @@ export default function Habits() {
               <DialogTitle>{editingHabit ? "Редактировать привычку" : "Новая привычка"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleAddHabit} className="space-y-4">
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="name">Название</Label>
-                <Input id="name" name="name" defaultValue={editingHabit?.name} required />
+                <Input
+                  id="name"
+                  name="name"
+                  defaultValue={editingHabit?.name}
+                  placeholder="Например: Медитация"
+                  required
+                />
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="description">Описание</Label>
-                <Textarea id="description" name="description" defaultValue={editingHabit?.description} required />
+                <Textarea
+                  id="description"
+                  name="description"
+                  defaultValue={editingHabit?.description}
+                  placeholder="Краткое описание привычки"
+                />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Категория</Label>
-                <Select name="category" defaultValue={editingHabit?.category} required>
+              <div>
+                <Label htmlFor="frequency">Частота</Label>
+                <Select name="frequency" defaultValue={editingHabit?.frequency || "daily"}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Выберите категорию" />
+                    <SelectValue placeholder="Выберите частоту" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Здоровье">Здоровье</SelectItem>
-                    <SelectItem value="Развитие">Развитие</SelectItem>
-                    <SelectItem value="Продуктивность">Продуктивность</SelectItem>
-                    <SelectItem value="Другое">Другое</SelectItem>
+                    <SelectItem value="daily">Ежедневно</SelectItem>
+                    <SelectItem value="weekly">Еженедельно</SelectItem>
+                    <SelectItem value="custom">Произвольно</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="goal">Цель (дней)</Label>
-                <Input 
-                  id="goal" 
-                  name="goal" 
-                  type="number" 
-                  min="1" 
-                  defaultValue={editingHabit?.goal || "30"} 
-                  required 
-                />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Отмена
+                </Button>
+                <Button type="submit">
+                  {editingHabit ? "Сохранить" : "Создать"}
+                </Button>
               </div>
-              <Button type="submit" className="w-full">
-                {editingHabit ? "Сохранить" : "Добавить"}
-              </Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input 
-          placeholder="Поиск привычек..." 
-          className="pl-9"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="shadow-elegant">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Всего привычек</p>
+                <p className="text-2xl font-bold">{stats.total}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-primary opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-elegant">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Выполнено сегодня</p>
+                <p className="text-2xl font-bold">{stats.completedToday}/{stats.total}</p>
+              </div>
+              <CheckCircle2 className="h-8 w-8 text-success opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="shadow-elegant">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Средний прогресс</p>
+                <p className="text-2xl font-bold">{Math.round(stats.averageProgress)}%</p>
+              </div>
+              <Calendar className="h-8 w-8 text-accent opacity-50" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="shadow-elegant">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Активных привычек</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{habits.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">2 выполнено сегодня</p>
-          </CardContent>
-        </Card>
+      {/* Week Navigation */}
+      <div className="flex items-center justify-between">
+        <Button
+          variant="outline"
+          onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}
+        >
+          ← Предыдущая неделя
+        </Button>
+        <h3 className="font-semibold">
+          {format(currentWeekStart, 'd MMM', { locale: ru })} - {format(addDays(currentWeekStart, 6), 'd MMM yyyy', { locale: ru })}
+        </h3>
+        <Button
+          variant="outline"
+          onClick={() => setCurrentWeekStart(addDays(currentWeekStart, 7))}
+        >
+          Следующая неделя →
+        </Button>
+      </div>
 
-        <Card className="shadow-elegant">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Средняя серия</CardTitle>
-            <Calendar className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">11 дней</div>
-            <p className="text-xs text-muted-foreground mt-1">Продолжайте в том же духе!</p>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-elegant">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Успешность</CardTitle>
-            <div className="text-2xl">🎯</div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">73%</div>
-            <p className="text-xs text-muted-foreground mt-1">На этой неделе</p>
-          </CardContent>
-        </Card>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Поиск привычек..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
       </div>
 
       {/* Habits List */}
       <div className="space-y-4">
-        {filteredHabits.map((habit) => (
-          <Card key={habit.id} className="shadow-md hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="space-y-4">
+        {filteredHabits.map((habit) => {
+          const streak = getHabitStreak(habit.id);
+          const weekProgress = getWeekProgress(habit.id);
+          
+          return (
+            <Card key={habit.id} className="shadow-elegant">
+              <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-xl font-semibold">{habit.name}</h3>
-                      {habit.completedToday && (
-                        <Badge className="bg-success text-success-foreground">
-                          <Check className="h-3 w-3 mr-1" />
-                          Выполнено
+                    <CardTitle className="flex items-center gap-2">
+                      {habit.name}
+                      {streak > 0 && (
+                        <Badge variant="secondary" className="ml-2">
+                          🔥 {streak} дней
                         </Badge>
                       )}
-                      <Badge variant="outline">{habit.category}</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{habit.description}</p>
+                    </CardTitle>
+                    {habit.description && (
+                      <p className="text-sm text-muted-foreground mt-1">{habit.description}</p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="flex items-center gap-2 text-2xl font-bold">
-                        🔥 {habit.streak}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">дней подряд</p>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleEditHabit(habit)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setDeletingHabitId(habit.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEditHabit(habit)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteHabit(habit.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
                   </div>
                 </div>
-
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Week Progress */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Прогресс к цели</span>
-                    <span className="font-medium">
-                      {habit.streak} / {habit.goal} дней
-                    </span>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Прогресс недели</span>
+                    <span className="font-medium">{Math.round(weekProgress)}%</span>
                   </div>
-                  <Progress value={(habit.streak / habit.goal) * 100} className="h-2" />
+                  <Progress value={weekProgress} className="h-2" />
                 </div>
 
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Последние 7 дней</p>
-                  <div className="flex gap-2">
-                    {weekDays.map((day, index) => (
-                      <div key={day} className="flex-1 text-center">
-                        <div className="text-xs text-muted-foreground mb-1">{day}</div>
-                        <div
-                          className={`
-                            aspect-square rounded-lg flex items-center justify-center text-sm font-medium
-                            ${
-                              habit.weekProgress[index]
-                                ? "bg-success text-success-foreground"
-                                : "bg-muted text-muted-foreground"
-                            }
-                          `}
-                        >
-                          {habit.weekProgress[index] ? "✓" : "−"}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                {/* Week Calendar */}
+                <div className="grid grid-cols-7 gap-2">
+                  {weekDays.map((date, index) => {
+                    const completed = isHabitCompleted(habit.id, date);
+                    const today = isToday(date);
+                    
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => handleToggleHabit(habit.id, date)}
+                        className={cn(
+                          "aspect-square rounded-lg border-2 flex flex-col items-center justify-center transition-all",
+                          completed 
+                            ? "bg-success/20 border-success" 
+                            : "border-border hover:border-primary",
+                          today && "ring-2 ring-primary ring-offset-2"
+                        )}
+                      >
+                        <span className="text-xs font-medium mb-1">
+                          {format(date, 'EEE', { locale: ru })}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {format(date, 'd')}
+                        </span>
+                        {completed ? (
+                          <CheckCircle2 className="h-5 w-5 text-success mt-1" />
+                        ) : (
+                          <Circle className="h-5 w-5 text-muted-foreground mt-1" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
-
-                {!habit.completedToday && (
-                  <Button 
-                    className="w-full bg-primary" 
-                    size="lg"
-                    onClick={() => toggleHabitCompletion(habit.id)}
-                  >
-                    <Check className="h-4 w-4 mr-2" />
-                    Отметить как выполненное
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation */}
       <AlertDialog open={!!deletingHabitId} onOpenChange={() => setDeletingHabitId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить привычку?</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить эту привычку? Весь прогресс будет утерян. Это действие нельзя отменить.
+              Это действие нельзя отменить. Привычка и все связанные записи будут удалены навсегда.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deletingHabitId && handleDeleteHabit(deletingHabitId)}>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive">
               Удалить
             </AlertDialogAction>
           </AlertDialogFooter>
