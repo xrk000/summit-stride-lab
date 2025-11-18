@@ -98,10 +98,13 @@ export default function Tasks() {
       (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
     
     // Поиск по тегам
-    const taskTags = taskTagsMap?.[task.id] || [];
-    const matchesTags = taskTags.some(tag => 
-      tag.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    let matchesTags = false;
+    if (taskTagsMap && searchQuery) {
+      const taskTags = taskTagsMap.get(task.id) || [];
+      matchesTags = taskTags.some(tag => 
+        tag.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
     
     const matchesDate = !filterDate || (task.due_date && 
       format(parseISO(task.due_date), "yyyy-MM-dd") === format(filterDate, "yyyy-MM-dd"));
