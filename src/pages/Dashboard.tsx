@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ import { format, isToday, isFuture, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
@@ -99,7 +101,10 @@ export default function Dashboard() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="shadow-elegant hover:shadow-lg transition-shadow">
+        <Card 
+          className="shadow-elegant hover:shadow-lg transition-shadow cursor-pointer"
+          onClick={() => navigate('/tasks', { state: { filterDate: new Date() } })}
+        >
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Задачи на сегодня</CardTitle>
             <CheckSquare className="h-4 w-4 text-primary" />
