@@ -13,16 +13,20 @@ import { useTasks } from "@/hooks/useTasks";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useHabits } from "@/hooks/useHabits";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
+import { useAllTaskTags } from "@/hooks/useAllTaskTags";
+import { TaskTagSelector } from "@/components/TaskTagSelector";
 import { format, isToday, isFuture, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 
 export default function Dashboard() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const { tasks, createTask, toggleTask } = useTasks();
   const { data: stats } = useUserStats();
   const { habits, habitEntries } = useHabits();
   const { events } = useCalendarEvents();
+  const { data: taskTagsMap } = useAllTaskTags();
 
   const todayTasks = tasks.filter(task => 
     task.due_date && isToday(parseISO(task.due_date))
@@ -73,8 +77,10 @@ export default function Dashboard() {
       due_date: new Date().toISOString().split('T')[0],
       completed: false,
       completed_at: null,
+      tagIds: selectedTagIds,
     });
     setIsDialogOpen(false);
+    setSelectedTagIds([]);
     e.currentTarget.reset();
   };
 
@@ -178,6 +184,10 @@ export default function Dashboard() {
                       <Label htmlFor="description">Описание</Label>
                       <Textarea id="description" name="description" />
                     </div>
+                    <TaskTagSelector 
+                      selectedTagIds={selectedTagIds}
+                      onTagsChange={setSelectedTagIds}
+                    />
                     <Button type="submit" className="w-full">Добавить</Button>
                   </form>
                 </DialogContent>
@@ -212,6 +222,15 @@ export default function Dashboard() {
                         <Clock className="h-3 w-3" />
                         {format(parseISO(task.due_date), "dd MMM", { locale: ru })}
                       </p>
+                    )}
+                    {taskTagsMap?.get(task.id) && taskTagsMap.get(task.id)!.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {taskTagsMap.get(task.id)!.map(tag => (
+                          <Badge key={tag.id} variant="outline" className="text-xs">
+                            {tag.name}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>

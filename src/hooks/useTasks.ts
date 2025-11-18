@@ -37,7 +37,7 @@ export const useTasks = () => {
   });
 
   const createTask = useMutation({
-    mutationFn: async (newTask: Omit<Task, "id" | "user_id" | "created_at" | "updated_at">) => {
+    mutationFn: async ({ tagIds, ...newTask }: Omit<Task, "id" | "user_id" | "created_at" | "updated_at"> & { tagIds?: string[] }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
@@ -48,6 +48,21 @@ export const useTasks = () => {
         .single();
 
       if (error) throw error;
+
+      // Добавляем теги к задаче
+      if (tagIds && tagIds.length > 0 && data) {
+        const tagRelations = tagIds.map(tagId => ({
+          task_id: data.id,
+          tag_id: tagId
+        }));
+        
+        const { error: tagError } = await supabase
+          .from("task_tags")
+          .insert(tagRelations);
+          
+        if (tagError) throw tagError;
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -67,7 +82,7 @@ export const useTasks = () => {
   });
 
   const updateTask = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Task> & { id: string }) => {
+    mutationFn: async ({ id, tagIds, ...updates }: Partial<Task> & { id: string; tagIds?: string[] }) => {
       const { data, error } = await supabase
         .from("tasks")
         .update(updates)
@@ -76,6 +91,27 @@ export const useTasks = () => {
         .single();
 
       if (error) throw error;
+
+      // Обновляем теги задачи
+      if (tagIds !== undefined) {
+        // Удаляем старые связи
+        await supabase.from("task_tags").delete().eq("task_id", id);
+        
+        // Добавляем новые связи
+        if (tagIds.length > 0) {
+          const tagRelations = tagIds.map(tagId => ({
+            task_id: id,
+            tag_id: tagId
+          }));
+          
+          const { error: tagError } = await supabase
+            .from("task_tags")
+            .insert(tagRelations);
+            
+          if (tagError) throw tagError;
+        }
+      }
+
       return data;
     },
     onSuccess: () => {
