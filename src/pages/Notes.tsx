@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, FileText, Tag, Search, Eye, Pencil, Trash2, Paperclip } from "lucide-react";
+import { Plus, FileText, Tag, Search, Eye, Pencil, Trash2, Paperclip, X } from "lucide-react";
 import { useNotes } from "@/hooks/useNotes";
 import { useTags } from "@/hooks/useTags";
 import { TagInput } from "@/components/TagInput";
@@ -143,7 +143,14 @@ export default function Notes() {
   const filteredNotes = notes.filter(note => {
     const matchesSearch = note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesSearch;
+    
+    // Поиск по тегам
+    const tags = noteTags[note.id] || [];
+    const matchesTags = tags.some(tag => 
+      tag.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    return matchesSearch || matchesTags;
   });
 
   const stats = {
@@ -307,15 +314,26 @@ export default function Notes() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Поиск по заметкам..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+      {/* Search and Filter */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Поиск по заметкам и тегам..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {searchQuery && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSearchQuery("")}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Notes List */}

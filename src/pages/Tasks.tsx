@@ -96,9 +96,16 @@ export default function Tasks() {
       (filter === "active" && !task.completed);
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    // Поиск по тегам
+    const taskTags = taskTagsMap?.[task.id] || [];
+    const matchesTags = taskTags.some(tag => 
+      tag.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
     const matchesDate = !filterDate || (task.due_date && 
       format(parseISO(task.due_date), "yyyy-MM-dd") === format(filterDate, "yyyy-MM-dd"));
-    return matchesFilter && matchesSearch && matchesDate;
+    return matchesFilter && (matchesSearch || matchesTags) && matchesDate;
   });
 
   if (isLoading) {
@@ -190,7 +197,7 @@ export default function Tasks() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Поиск задач..."
+            placeholder="Поиск задач и тегов..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
