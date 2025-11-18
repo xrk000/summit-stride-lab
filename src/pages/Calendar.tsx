@@ -26,6 +26,7 @@ export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [viewingItem, setViewingItem] = useState<{ type: 'event' | 'task' | 'habit', data: any } | null>(null);
 
   const { events, isLoading, createEvent, updateEvent, deleteEvent } = useCalendarEvents();
   const { tasks } = useTasks();
@@ -365,7 +366,8 @@ export default function Calendar() {
                 {selectedDayEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                    className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                    onClick={() => setViewingItem({ type: 'event', data: event })}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
@@ -390,7 +392,7 @@ export default function Calendar() {
                           <p className="text-sm text-muted-foreground mt-1">{event.description}</p>
                         )}
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -419,7 +421,8 @@ export default function Calendar() {
                 {selectedDayTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                    className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                    onClick={() => setViewingItem({ type: 'task', data: task })}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
@@ -457,7 +460,8 @@ export default function Calendar() {
                 {selectedDayHabits.map((habit) => (
                   <div
                     key={habit.id}
-                    className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                    className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                    onClick={() => setViewingItem({ type: 'habit', data: habit })}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
@@ -503,6 +507,103 @@ export default function Calendar() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* View Item Dialog */}
+      <Dialog open={!!viewingItem} onOpenChange={() => setViewingItem(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {viewingItem?.type === 'event' && 'Событие'}
+              {viewingItem?.type === 'task' && 'Задача'}
+              {viewingItem?.type === 'habit' && 'Привычка'}
+            </DialogTitle>
+          </DialogHeader>
+          {viewingItem && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-semibold">Название</Label>
+                <p className="text-foreground mt-1">
+                  {viewingItem.type === 'habit' ? viewingItem.data.name : viewingItem.data.title}
+                </p>
+              </div>
+              
+              {viewingItem.type === 'event' && viewingItem.data.type && (
+                <div>
+                  <Label className="text-sm font-semibold">Тип</Label>
+                  <p className="text-foreground mt-1">
+                    {viewingItem.data.type === 'meeting' ? 'Встреча' :
+                     viewingItem.data.type === 'reminder' ? 'Напоминание' :
+                     'Заметка'}
+                  </p>
+                </div>
+              )}
+
+              {viewingItem.type === 'event' && viewingItem.data.date && (
+                <div>
+                  <Label className="text-sm font-semibold">Дата</Label>
+                  <p className="text-foreground mt-1">
+                    {format(parseISO(viewingItem.data.date), "d MMMM yyyy", { locale: ru })}
+                  </p>
+                </div>
+              )}
+
+              {viewingItem.type === 'event' && viewingItem.data.time && (
+                <div>
+                  <Label className="text-sm font-semibold">Время</Label>
+                  <p className="text-foreground mt-1">{viewingItem.data.time}</p>
+                </div>
+              )}
+
+              {viewingItem.type === 'task' && viewingItem.data.priority && (
+                <div>
+                  <Label className="text-sm font-semibold">Приоритет</Label>
+                  <p className="text-foreground mt-1">
+                    {viewingItem.data.priority === 'high' ? 'Высокий' :
+                     viewingItem.data.priority === 'medium' ? 'Средний' :
+                     'Низкий'}
+                  </p>
+                </div>
+              )}
+
+              {viewingItem.type === 'task' && viewingItem.data.due_date && (
+                <div>
+                  <Label className="text-sm font-semibold">Срок выполнения</Label>
+                  <p className="text-foreground mt-1">
+                    {format(parseISO(viewingItem.data.due_date), "d MMMM yyyy", { locale: ru })}
+                  </p>
+                </div>
+              )}
+
+              {viewingItem.type === 'task' && (
+                <div>
+                  <Label className="text-sm font-semibold">Статус</Label>
+                  <p className="text-foreground mt-1">
+                    {viewingItem.data.completed ? 'Выполнено' : 'В работе'}
+                  </p>
+                </div>
+              )}
+
+              {viewingItem.type === 'habit' && viewingItem.data.frequency && (
+                <div>
+                  <Label className="text-sm font-semibold">Частота</Label>
+                  <p className="text-foreground mt-1">
+                    {viewingItem.data.frequency === 'daily' ? 'Ежедневно' :
+                     viewingItem.data.frequency === 'weekly' ? 'Еженедельно' :
+                     viewingItem.data.frequency}
+                  </p>
+                </div>
+              )}
+
+              {viewingItem.data.description && (
+                <div>
+                  <Label className="text-sm font-semibold">Описание</Label>
+                  <p className="text-foreground mt-1 whitespace-pre-wrap">{viewingItem.data.description}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
