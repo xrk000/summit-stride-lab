@@ -14,10 +14,42 @@ import { TagInput } from "@/components/TagInput";
 import { FileUpload } from "@/components/FileUpload";
 
 const noteTemplates = [
-  { id: "meeting", name: "Протокол встречи", icon: "📝" },
-  { id: "idea", name: "Идея", icon: "💡" },
-  { id: "todo", name: "Чек-лист", icon: "✅" },
-  { id: "research", name: "Исследование", icon: "🔍" },
+  { 
+    id: "meeting", 
+    name: "Протокол встречи", 
+    icon: "📝",
+    template: {
+      title: "Протокол встречи от [дата]",
+      content: `Участники:\n- \n- \n\nПовестка дня:\n1. \n2. \n\nОсновные обсуждаемые вопросы:\n- \n\nПринятые решения:\n- \n\nДействия и ответственные:\n- [ ] Задача 1 - [Имя]\n- [ ] Задача 2 - [Имя]\n\nДата следующей встречи:\n`
+    }
+  },
+  { 
+    id: "idea", 
+    name: "Идея", 
+    icon: "💡",
+    template: {
+      title: "Новая идея",
+      content: `💡 Суть идеи:\n\n\nПроблема, которую решает:\n\n\nПреимущества:\n- \n- \n\nВозможные сложности:\n- \n\nСледующие шаги:\n1. \n2. \n`
+    }
+  },
+  { 
+    id: "todo", 
+    name: "Чек-лист", 
+    icon: "✅",
+    template: {
+      title: "Чек-лист",
+      content: `📋 Цель:\n\n\nЗадачи:\n- [ ] \n- [ ] \n- [ ] \n- [ ] \n- [ ] \n\nДополнительно:\n- [ ] \n`
+    }
+  },
+  { 
+    id: "research", 
+    name: "Исследование", 
+    icon: "🔍",
+    template: {
+      title: "Исследование: [тема]",
+      content: `🔍 Тема исследования:\n\n\nЦель:\n\n\nИсточники:\n1. \n2. \n\nОсновные тезисы:\n- \n- \n\nВыводы:\n\n\nСсылки и материалы:\n- \n`
+    }
+  },
 ];
 
 export default function Notes() {
@@ -28,6 +60,7 @@ export default function Notes() {
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const { notes, isLoading, createNote, updateNote, deleteNote } = useNotes();
   const { getEntityTags } = useTags();
 
@@ -123,7 +156,10 @@ export default function Notes() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
-          if (!open) setEditingNote(null);
+          if (!open) {
+            setEditingNote(null);
+            setSelectedTemplate(null);
+          }
         }}>
           <DialogTrigger asChild>
             <Button className="bg-primary">
@@ -141,7 +177,7 @@ export default function Notes() {
                 <Input
                   id="title"
                   name="title"
-                  defaultValue={editingNote?.title}
+                  defaultValue={editingNote?.title || selectedTemplate?.template.title || ""}
                   placeholder="Введите название заметки"
                   required
                 />
@@ -151,7 +187,7 @@ export default function Notes() {
                 <Textarea
                   id="content"
                   name="content"
-                  defaultValue={editingNote?.content}
+                  defaultValue={editingNote?.content || selectedTemplate?.template.content || ""}
                   placeholder="Напишите содержание заметки..."
                   className="min-h-[200px]"
                 />
@@ -238,6 +274,7 @@ export default function Notes() {
               variant="outline"
               size="sm"
               onClick={() => {
+                setSelectedTemplate(template);
                 setIsDialogOpen(true);
               }}
             >
