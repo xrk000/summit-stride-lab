@@ -56,24 +56,23 @@ export default function Tasks() {
     setIsDialogOpen(true);
   };
 
-  const handleDeleteTask = (taskId: number) => {
-    setTasks(tasks.filter(task => task.id !== taskId));
-    setDeletingTaskId(null);
+  const handleDeleteTask = (taskId: string) => {
+    setDeletingTaskId(taskId);
   };
 
-  const toggleTaskStatus = (taskId: number) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId 
-        ? { ...task, status: task.status === "active" ? "completed" : "active" as "active" | "completed" }
-        : task
-    ));
+  const confirmDelete = () => {
+    if (deletingTaskId !== null) {
+      deleteTask(deletingTaskId);
+      setDeletingTaskId(null);
+    }
   };
 
-  const filteredTasks = tasks.filter((task) => {
-    const matchesFilter = filter === "all" || task.status === filter;
-    const matchesSearch = !searchQuery || 
-      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (task.project && task.project.toLowerCase().includes(searchQuery.toLowerCase())) ||
+  const filteredTasks = tasks.filter(task => {
+    const matchesFilter = 
+      filter === "all" || 
+      (filter === "completed" && task.completed) ||
+      (filter === "active" && !task.completed);
+    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesFilter && matchesSearch;
   });
@@ -222,17 +221,19 @@ export default function Tasks() {
                         )}>
                           {task.title}
                         </h3>
-                        <Badge
-                          variant={
-                            task.priority === "high"
-                              ? "destructive"
-                              : task.priority === "medium"
-                              ? "default"
-                              : "secondary"
-                          }
-                        >
-                          {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
-                        </Badge>
+                        {task.priority && (
+                          <Badge
+                            variant={
+                              task.priority === "high"
+                                ? "destructive"
+                                : task.priority === "medium"
+                                ? "default"
+                                : "secondary"
+                            }
+                          >
+                            {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
+                          </Badge>
+                        )}
                       </div>
                       {task.description && (
                         <p className="text-sm text-muted-foreground">
