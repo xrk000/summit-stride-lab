@@ -61,8 +61,9 @@ export default function Notes() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [newNoteTags, setNewNoteTags] = useState<any[]>([]);
   const { notes, isLoading, createNote, updateNote, deleteNote } = useNotes();
-  const { getEntityTags } = useTags();
+  const { getEntityTags, addTagToEntity } = useTags();
 
   const [noteTags, setNoteTags] = useState<Record<string, any[]>>({});
 
@@ -81,7 +82,7 @@ export default function Notes() {
     }
   }, [notes, getEntityTags]);
 
-  const handleAddNote = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddNote = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
@@ -94,10 +95,27 @@ export default function Notes() {
       updateNote({ id: editingNote.id, ...noteData });
       setEditingNote(null);
     } else {
-      createNote(noteData);
+      // Create note first, then add tags
+      const result = await new Promise((resolve) => {
+        createNote(noteData, {
+          onSuccess: (newNote: any) => {
+            resolve(newNote);
+          }
+        });
+      });
+      
+      // Add tags to the newly created note
+      if (result && newNoteTags.length > 0) {
+        const newNote = result as any;
+        for (const tag of newNoteTags) {
+          addTagToEntity({ entityType: 'note', entityId: newNote.id, tagId: tag.id });
+        }
+      }
+      setNewNoteTags([]);
     }
     
     setIsDialogOpen(false);
+    setSelectedTemplate(null);
     e.currentTarget.reset();
   };
 
@@ -159,6 +177,7 @@ export default function Notes() {
           if (!open) {
             setEditingNote(null);
             setSelectedTemplate(null);
+            setNewNoteTags([]);
           }
         }}>
           <DialogTrigger asChild>
@@ -192,25 +211,28 @@ export default function Notes() {
                   className="min-h-[200px]"
                 />
               </div>
+              <div>
+                <Label>Теги</Label>
+                <TagInput
+                  entityType="note"
+                  entityId={editingNote?.id || 'temp'}
+                  selectedTags={editingNote ? (noteTags[editingNote.id] || []) : newNoteTags}
+                  isNewEntity={!editingNote}
+                  onTagsChange={async (tags) => {
+                    if (editingNote) {
+                      const updatedTags = await getEntityTags("note", editingNote.id);
+                      setNoteTags(prev => ({ ...prev, [editingNote.id]: updatedTags }));
+                    } else {
+                      setNewNoteTags(tags);
+                    }
+                  }}
+                />
+              </div>
               {editingNote && (
-                <>
-                  <div>
-                    <Label>Теги</Label>
-                    <TagInput
-                      entityType="note"
-                      entityId={editingNote.id}
-                      selectedTags={noteTags[editingNote.id] || []}
-                      onTagsChange={async () => {
-                        const tags = await getEntityTags("note", editingNote.id);
-                        setNoteTags(prev => ({ ...prev, [editingNote.id]: tags }));
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label>Вложения</Label>
-                    <FileUpload entityType="note" entityId={editingNote.id} />
-                  </div>
-                </>
+                <div>
+                  <Label>Вложения</Label>
+                  <FileUpload entityType="note" entityId={editingNote.id} />
+                </div>
               )}
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>

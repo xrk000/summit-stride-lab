@@ -10,25 +10,37 @@ interface TagInputProps {
   entityType: 'task' | 'note' | 'habit' | 'project' | 'calendar_event';
   entityId: string;
   selectedTags: any[];
-  onTagsChange?: () => void;
+  onTagsChange?: (tags: any[]) => void;
+  isNewEntity?: boolean;
 }
 
-export const TagInput = ({ entityType, entityId, selectedTags, onTagsChange }: TagInputProps) => {
+export const TagInput = ({ entityType, entityId, selectedTags, onTagsChange, isNewEntity = false }: TagInputProps) => {
   const { tags, createTag, addTagToEntity, removeTagFromEntity } = useTags();
   const [newTagName, setNewTagName] = useState("");
   const [isOpen, setIsOpen] = useState(false);
 
   const handleAddTag = (tagId: string) => {
-    addTagToEntity({ entityType, entityId, tagId });
-    onTagsChange?.();
+    if (isNewEntity) {
+      const tag = tags.find(t => t.id === tagId);
+      if (tag) {
+        onTagsChange?.([...selectedTags, tag]);
+      }
+    } else {
+      addTagToEntity({ entityType, entityId, tagId });
+      onTagsChange?.(selectedTags);
+    }
   };
 
   const handleRemoveTag = (tagId: string) => {
-    removeTagFromEntity({ entityType, entityId, tagId });
-    onTagsChange?.();
+    if (isNewEntity) {
+      onTagsChange?.(selectedTags.filter(t => t.id !== tagId));
+    } else {
+      removeTagFromEntity({ entityType, entityId, tagId });
+      onTagsChange?.(selectedTags);
+    }
   };
 
-  const handleCreateTag = () => {
+  const handleCreateTag = async () => {
     if (newTagName.trim()) {
       createTag(newTagName.trim());
       setNewTagName("");
