@@ -8,75 +8,44 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Filter, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-type Task = {
-  id: number;
-  title: string;
-  project?: string;
-  projectId?: number;
-  priority: "high" | "medium" | "low";
-  status: "active" | "completed";
-  deadline: string;
-  description?: string;
-};
+import { useTasks, Task } from "@/hooks/useTasks";
+import { format, parseISO } from "date-fns";
+import { ru } from "date-fns/locale";
 
 export default function Tasks() {
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [deletingTaskId, setDeletingTaskId] = useState<number | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  // Моковые проекты для выбора
-  const availableProjects = [
-    { id: 1, name: "Дипломная работа" },
-    { id: 2, name: "Проект А" },
-    { id: 3, name: "Личный сайт" },
-  ];
-
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: 1, title: "Написать отчет", project: "Работа", priority: "high", status: "active", deadline: "2024-11-15", description: "Подготовить квартальный отчет" },
-    { id: 2, title: "Обновить документацию", project: "Проект А", projectId: 2, priority: "medium", status: "active", deadline: "2024-11-16", description: "Обновить README и API документацию" },
-    { id: 3, title: "Код ревью", project: "Работа", priority: "low", status: "completed", deadline: "2024-11-10", description: "Проверить PR от коллеги" },
-    { id: 4, title: "Купить продукты", priority: "medium", status: "active", deadline: "2024-11-15", description: "Молоко, хлеб, яйца" },
-  ]);
+  
+  const { tasks, isLoading, createTask, updateTask, deleteTask, toggleTask } = useTasks();
 
   const handleAddTask = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const projectIdValue = formData.get("projectId") as string;
-    const projectId = projectIdValue && projectIdValue !== "none" ? parseInt(projectIdValue) : undefined;
-    const selectedProject = projectId ? availableProjects.find(p => p.id === projectId) : undefined;
     
     if (editingTask) {
-      setTasks(tasks.map(task =>
-        task.id === editingTask.id
-          ? {
-              ...task,
-              title: formData.get("title") as string,
-              project: selectedProject?.name,
-              projectId: projectId,
-              priority: formData.get("priority") as "high" | "medium" | "low",
-              deadline: formData.get("deadline") as string,
-              description: formData.get("description") as string,
-            }
-          : task
-      ));
+      updateTask({
+        id: editingTask.id,
+        title: formData.get("title") as string,
+        priority: formData.get("priority") as string,
+        due_date: formData.get("deadline") as string,
+        description: formData.get("description") as string,
+      });
       setEditingTask(null);
     } else {
-      const newTask: Task = {
-        id: Math.max(0, ...tasks.map(t => t.id)) + 1,
+      createTask({
         title: formData.get("title") as string,
-        project: selectedProject?.name,
-        projectId: projectId,
-        priority: formData.get("priority") as "high" | "medium" | "low",
-        status: "active",
-        deadline: formData.get("deadline") as string,
+        priority: formData.get("priority") as string,
+        due_date: formData.get("deadline") as string,
         description: formData.get("description") as string,
-      };
-      setTasks([...tasks, newTask]);
+        completed: false,
+        completed_at: null,
+      });
     }
     setIsDialogOpen(false);
     e.currentTarget.reset();
@@ -109,12 +78,23 @@ export default function Tasks() {
     return matchesFilter && matchesSearch;
   });
 
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <p className="text-muted-foreground">Загрузка задач...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-8 space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Задачи</h1>
-          <p className="text-muted-foreground mt-1">Управляйте своими задачами и проектами</p>
+          <h1 className="text-4xl font-bold text-foreground">Задачи</h1>
+          <p className="text-muted-foreground mt-1">
+            Всего задач: {tasks.length}
+          </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
@@ -133,27 +113,16 @@ export default function Tasks() {
             <form onSubmit={handleAddTask} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Название</Label>
-                <Input id="title" name="title" defaultValue={editingTask?.title} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="projectId">Проект (необязательно)</Label>
-                <Select name="projectId" defaultValue={editingTask?.projectId?.toString() || "none"}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Без проекта" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Без проекта</SelectItem>
-                    {availableProjects.map(project => (
-                      <SelectItem key={project.id} value={project.id.toString()}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input 
+                  id="title" 
+                  name="title" 
+                  defaultValue={editingTask?.title}
+                  required 
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="priority">Приоритет</Label>
-                <Select name="priority" defaultValue={editingTask?.priority} required>
+                <Select name="priority" defaultValue={editingTask?.priority || "medium"}>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите приоритет" />
                   </SelectTrigger>
@@ -166,28 +135,38 @@ export default function Tasks() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="deadline">Дедлайн</Label>
-                <Input id="deadline" name="deadline" type="date" defaultValue={editingTask?.deadline} required />
+                <Input 
+                  id="deadline" 
+                  name="deadline" 
+                  type="date" 
+                  defaultValue={editingTask?.due_date || ""}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Описание</Label>
-                <Textarea id="description" name="description" defaultValue={editingTask?.description} />
+                <Textarea 
+                  id="description" 
+                  name="description" 
+                  defaultValue={editingTask?.description || ""}
+                />
               </div>
               <Button type="submit" className="w-full">
-                {editingTask ? "Сохранить" : "Добавить"}
+                {editingTask ? "Сохранить" : "Создать"}
               </Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
+      {/* Filters and Search */}
+      <div className="flex gap-4">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Поиск задач..." 
-            className="pl-9" 
+          <Input
+            placeholder="Поиск задач..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
           />
         </div>
         <div className="flex gap-2">
@@ -207,90 +186,94 @@ export default function Tasks() {
             variant={filter === "completed" ? "default" : "outline"}
             onClick={() => setFilter("completed")}
           >
-            Выполненные
+            Завершенные
           </Button>
         </div>
-        <Button variant="outline" size="icon">
-          <Filter className="h-4 w-4" />
-        </Button>
       </div>
 
-      <div className="space-y-3">
-        {filteredTasks.map((task) => (
-          <Card
-            key={task.id}
-            className={cn(
-              "shadow-md hover:shadow-lg transition-all",
-              task.status === "completed" && "opacity-60"
-            )}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 flex-1">
-                  <input
-                    type="checkbox"
-                    checked={task.status === "completed"}
-                    onChange={() => toggleTaskStatus(task.id)}
-                    className="h-5 w-5 rounded border-border cursor-pointer"
-                  />
-                  <div className="flex-1">
-                    <h3
-                      className={cn(
-                        "font-semibold text-lg",
-                        task.status === "completed" && "line-through text-muted-foreground"
-                      )}
-                    >
-                      {task.title}
-                    </h3>
-                    <div className="flex items-center gap-3 mt-1">
-                      {task.project && (
-                        <Badge variant="outline" className="text-xs">
-                          {task.project}
-                        </Badge>
-                      )}
-                      <span className="text-xs text-muted-foreground">{task.deadline}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Badge
-                    variant={
-                      task.priority === "high"
-                        ? "destructive"
-                        : task.priority === "medium"
-                        ? "default"
-                        : "secondary"
-                    }
-                  >
-                    {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleEditTask(task)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => setDeletingTaskId(task.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSelectedTask(task)}
-                  >
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                  </Button>
-                </div>
-              </div>
+      {/* Tasks List */}
+      <div className="grid gap-4">
+        {filteredTasks.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center text-muted-foreground">
+              Задачи не найдены
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          filteredTasks.map((task) => (
+            <Card key={task.id} className={cn(
+              "hover:shadow-md transition-shadow",
+              task.completed && "opacity-60"
+            )}>
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-1">
+                    <input
+                      type="checkbox"
+                      checked={task.completed || false}
+                      onChange={() => toggleTask(task.id)}
+                      className="mt-1 h-5 w-5 rounded border-border cursor-pointer"
+                    />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <h3 className={cn(
+                          "font-semibold text-lg",
+                          task.completed && "line-through text-muted-foreground"
+                        )}>
+                          {task.title}
+                        </h3>
+                        <Badge
+                          variant={
+                            task.priority === "high"
+                              ? "destructive"
+                              : task.priority === "medium"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
+                          {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
+                        </Badge>
+                      </div>
+                      {task.description && (
+                        <p className="text-sm text-muted-foreground">
+                          {task.description}
+                        </p>
+                      )}
+                      {task.due_date && (
+                        <p className="text-sm text-muted-foreground">
+                          Дедлайн: {format(parseISO(task.due_date), "dd MMMM yyyy", { locale: ru })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEditTask(task)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteTask(task.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSelectedTask(task)}
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Task Detail Dialog */}
@@ -300,29 +283,27 @@ export default function Tasks() {
             <DialogTitle>{selectedTask?.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {selectedTask?.project && (
-              <div>
-                <Label>Проект</Label>
-                <p className="text-sm mt-1">{selectedTask?.project}</p>
-              </div>
-            )}
             <div>
               <Label>Приоритет</Label>
               <p className="text-sm mt-1">
                 {selectedTask?.priority === "high" ? "Высокий" : selectedTask?.priority === "medium" ? "Средний" : "Низкий"}
               </p>
             </div>
-            <div>
-              <Label>Дедлайн</Label>
-              <p className="text-sm mt-1">{selectedTask?.deadline}</p>
-            </div>
+            {selectedTask?.due_date && (
+              <div>
+                <Label>Дедлайн</Label>
+                <p className="text-sm mt-1">
+                  {format(parseISO(selectedTask.due_date), "dd MMMM yyyy", { locale: ru })}
+                </p>
+              </div>
+            )}
             <div>
               <Label>Описание</Label>
               <p className="text-sm mt-1">{selectedTask?.description || "Нет описания"}</p>
             </div>
             <div>
               <Label>Статус</Label>
-              <p className="text-sm mt-1">{selectedTask?.status === "active" ? "Активна" : "Выполнена"}</p>
+              <p className="text-sm mt-1">{selectedTask?.completed ? "Завершена" : "Активна"}</p>
             </div>
           </div>
         </DialogContent>
@@ -334,12 +315,12 @@ export default function Tasks() {
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить задачу?</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить эту задачу? Это действие нельзя отменить.
+              Это действие нельзя отменить. Задача будет удалена навсегда.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deletingTaskId && handleDeleteTask(deletingTaskId)}>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">
               Удалить
             </AlertDialogAction>
           </AlertDialogFooter>
