@@ -44,6 +44,77 @@ export type Database = {
         }
         Relationships: []
       }
+      attachments: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          file_path: string
+          file_size: number
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_event_tags: {
+        Row: {
+          event_id: string
+          tag_id: string
+        }
+        Insert: {
+          event_id: string
+          tag_id: string
+        }
+        Update: {
+          event_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_tags_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_event_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_events: {
         Row: {
           created_at: string
@@ -130,6 +201,36 @@ export type Database = {
           },
         ]
       }
+      habit_tags: {
+        Row: {
+          habit_id: string
+          tag_id: string
+        }
+        Insert: {
+          habit_id: string
+          tag_id: string
+        }
+        Update: {
+          habit_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "habit_tags_habit_id_fkey"
+            columns: ["habit_id"]
+            isOneToOne: false
+            referencedRelation: "habits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "habit_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       habits: {
         Row: {
           created_at: string
@@ -164,6 +265,36 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      note_tags: {
+        Row: {
+          note_id: string
+          tag_id: string
+        }
+        Insert: {
+          note_id: string
+          tag_id: string
+        }
+        Update: {
+          note_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_tags_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "note_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
             referencedColumns: ["id"]
           },
         ]
@@ -230,6 +361,36 @@ export type Database = {
         }
         Relationships: []
       }
+      project_tags: {
+        Row: {
+          project_id: string
+          tag_id: string
+        }
+        Insert: {
+          project_id: string
+          tag_id: string
+        }
+        Update: {
+          project_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_tags_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           created_at: string
@@ -264,6 +425,65 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tags: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tags_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_tags: {
+        Row: {
+          tag_id: string
+          task_id: string
+        }
+        Insert: {
+          tag_id: string
+          task_id: string
+        }
+        Update: {
+          tag_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_tags_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -346,6 +566,38 @@ export type Database = {
             foreignKeyName: "user_achievements_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          preferences: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          preferences?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          preferences?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
