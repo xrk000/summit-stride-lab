@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Search, X, Calendar as CalendarIcon, CheckSquare, TrendingUp } from "lucide-react";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useTasks } from "@/hooks/useTasks";
 import { useHabits } from "@/hooks/useHabits";
@@ -27,6 +27,7 @@ export default function Calendar() {
   const [selectedDay, setSelectedDay] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [viewingItem, setViewingItem] = useState<{ type: 'event' | 'task' | 'habit', data: any } | null>(null);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   const { events, isLoading, createEvent, updateEvent, deleteEvent } = useCalendarEvents();
   const { tasks } = useTasks();
@@ -104,6 +105,23 @@ export default function Calendar() {
     const matchesType = typeFilter === "all" || typeFilter === "habits";
     return matchesSearch && matchesType;
   });
+
+  // Get all search results with their dates
+  const searchResults = searchQuery ? [
+    ...filteredEvents.map(event => ({ ...event, type: 'event' as const, date: event.date })),
+    ...filteredTasks.map(task => ({ ...task, type: 'task' as const, date: task.due_date || '' })),
+    ...filteredHabits.flatMap(habit => {
+      const entries = habitEntries.filter(e => e.habit_id === habit.id && e.completed);
+      return entries.map(entry => ({ ...habit, type: 'habit' as const, date: entry.date, entryId: entry.id }));
+    })
+  ].filter(item => item.date).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()) : [];
+
+  const handleSearchResultClick = (result: any) => {
+    setSelectedDay(result.date);
+    setCurrentDate(parseISO(result.date));
+    setViewingItem({ type: result.type, data: result });
+    setShowSearchResults(false);
+  };
 
   const selectedDayEvents = filteredEvents.filter(event => event.date === selectedDay);
 
@@ -269,11 +287,52 @@ export default function Calendar() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Поиск событий..."
+            placeholder="Поиск по тегам..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setShowSearchResults(e.target.value.length > 0);
+            }}
             className="pl-9"
           />
+          {showSearchResults && searchResults.length > 0 && (
+            <Card className="absolute top-full mt-2 w-full max-h-96 overflow-y-auto z-50 shadow-lg">
+              <div className="p-4 space-y-2">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-sm">Результаты поиска ({searchResults.length})</h3>
+                  <button onClick={() => setShowSearchResults(false)} className="text-muted-foreground hover:text-foreground">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                {searchResults.map((result, idx) => (
+                  <button
+                    key={`${result.type}-${result.id}-${idx}`}
+                    onClick={() => handleSearchResultClick(result)}
+                    className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          {result.type === 'event' && <CalendarIcon className="h-4 w-4 text-primary" />}
+                          {result.type === 'task' && <CheckSquare className="h-4 w-4 text-primary" />}
+                          {result.type === 'habit' && <TrendingUp className="h-4 w-4 text-primary" />}
+                          <span className="font-medium text-sm">
+                            {result.type === 'event' ? result.title : result.type === 'task' ? result.title : result.name}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {format(parseISO(result.date), 'dd MMMM yyyy', { locale: ru })}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {result.type === 'event' ? 'Событие' : result.type === 'task' ? 'Задача' : 'Привычка'}
+                      </Badge>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
         <div className="flex gap-2">
           <Button
