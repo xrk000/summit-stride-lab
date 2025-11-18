@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Search, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTasks, Task } from "@/hooks/useTasks";
+import { useTaskTags } from "@/hooks/useTaskTags";
+import { useAllTaskTags } from "@/hooks/useAllTaskTags";
+import { TaskTagSelector } from "@/components/TaskTagSelector";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -21,8 +24,20 @@ export default function Tasks() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   
   const { tasks, isLoading, createTask, updateTask, deleteTask, toggleTask } = useTasks();
+  const { data: editingTaskTags } = useTaskTags(editingTask?.id || null);
+  const { data: taskTagsMap } = useAllTaskTags();
+
+  // Загружаем теги при редактировании задачи
+  useEffect(() => {
+    if (editingTask && editingTaskTags) {
+      setSelectedTagIds(editingTaskTags.map(tag => tag.id));
+    } else {
+      setSelectedTagIds([]);
+    }
+  }, [editingTask, editingTaskTags]);
 
   const handleAddTask = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -35,6 +50,7 @@ export default function Tasks() {
         priority: formData.get("priority") as string,
         due_date: formData.get("deadline") as string,
         description: formData.get("description") as string,
+        tagIds: selectedTagIds,
       });
       setEditingTask(null);
     } else {
@@ -45,9 +61,11 @@ export default function Tasks() {
         description: formData.get("description") as string,
         completed: false,
         completed_at: null,
+        tagIds: selectedTagIds,
       });
     }
     setIsDialogOpen(false);
+    setSelectedTagIds([]);
     e.currentTarget.reset();
   };
 
@@ -149,6 +167,10 @@ export default function Tasks() {
                   defaultValue={editingTask?.description || ""}
                 />
               </div>
+              <TaskTagSelector 
+                selectedTagIds={selectedTagIds}
+                onTagsChange={setSelectedTagIds}
+              />
               <Button type="submit" className="w-full">
                 {editingTask ? "Сохранить" : "Создать"}
               </Button>
@@ -244,6 +266,15 @@ export default function Tasks() {
                         <p className="text-sm text-muted-foreground">
                           Дедлайн: {format(parseISO(task.due_date), "dd MMMM yyyy", { locale: ru })}
                         </p>
+                      )}
+                      {taskTagsMap?.get(task.id) && taskTagsMap.get(task.id)!.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {taskTagsMap.get(task.id)!.map(tag => (
+                            <Badge key={tag.id} variant="outline" className="text-xs">
+                              {tag.name}
+                            </Badge>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>
