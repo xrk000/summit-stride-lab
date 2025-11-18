@@ -21,12 +21,12 @@ export default function WeekEventsDialog({ open, onOpenChange, events }: WeekEve
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>События этой недели</DialogTitle>
         </DialogHeader>
-        <ScrollArea className="max-h-[60vh]">
-          <div className="space-y-3 pr-4">
+        <ScrollArea className="h-[60vh] pr-4">
+          <div className="space-y-3">
             {events.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">Нет событий на эту неделю</p>
             ) : (
