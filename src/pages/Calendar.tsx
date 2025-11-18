@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Search } from "lucide-react";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useTasks } from "@/hooks/useTasks";
+import { useHabits } from "@/hooks/useHabits";
 import { format, parse, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -25,6 +26,7 @@ export default function Calendar() {
 
   const { events, isLoading, createEvent, updateEvent, deleteEvent } = useCalendarEvents();
   const { tasks } = useTasks();
+  const { habits, habitEntries } = useHabits();
 
   const handleAddEvent = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -71,7 +73,19 @@ export default function Calendar() {
 
   const filteredEvents = events.filter(event => {
     const matchesSearch = event.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = typeFilter === "all" || event.type === typeFilter;
+    const matchesType = typeFilter === "all" || typeFilter === "events";
+    return matchesSearch && matchesType;
+  });
+
+  const filteredTasks = tasks.filter(task => {
+    const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = typeFilter === "all" || typeFilter === "tasks";
+    return matchesSearch && matchesType;
+  });
+
+  const filteredHabits = habits.filter(habit => {
+    const matchesSearch = habit.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = typeFilter === "all" || typeFilter === "habits";
     return matchesSearch && matchesType;
   });
 
@@ -97,10 +111,21 @@ export default function Calendar() {
 
   const getTasksForDay = (day: Date) => {
     const dayStr = format(day, 'yyyy-MM-dd');
-    return tasks.filter(task => task.due_date === dayStr);
+    return filteredTasks.filter(task => task.due_date === dayStr);
   };
 
-  const selectedDayTasks = tasks.filter(task => task.due_date === selectedDay);
+  const getHabitsForDay = (day: Date) => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    // Получаем привычки, которые были выполнены в этот день
+    const completedHabitIds = habitEntries
+      .filter(entry => entry.date === dayStr && entry.completed)
+      .map(entry => entry.habit_id);
+    
+    return filteredHabits.filter(habit => completedHabitIds.includes(habit.id));
+  };
+
+  const selectedDayTasks = filteredTasks.filter(task => task.due_date === selectedDay);
+  const selectedDayHabits = getHabitsForDay(parseISO(selectedDay));
 
   if (isLoading) {
     return (
@@ -151,9 +176,8 @@ export default function Calendar() {
                     <SelectValue placeholder="Выберите тип" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="meeting">Встреча</SelectItem>
-                    <SelectItem value="task">Задача</SelectItem>
-                    <SelectItem value="habit">Привычка</SelectItem>
+                    <SelectItem value="meeting">Событие</SelectItem>
+                    <SelectItem value="reminder">Напоминание</SelectItem>
                     <SelectItem value="note">Заметка</SelectItem>
                   </SelectContent>
                 </Select>
@@ -212,20 +236,20 @@ export default function Calendar() {
             Все
           </Button>
           <Button
-            variant={typeFilter === "meeting" ? "default" : "outline"}
-            onClick={() => setTypeFilter("meeting")}
+            variant={typeFilter === "events" ? "default" : "outline"}
+            onClick={() => setTypeFilter("events")}
           >
-            Встречи
+            События
           </Button>
           <Button
-            variant={typeFilter === "task" ? "default" : "outline"}
-            onClick={() => setTypeFilter("task")}
+            variant={typeFilter === "tasks" ? "default" : "outline"}
+            onClick={() => setTypeFilter("tasks")}
           >
             Задачи
           </Button>
           <Button
-            variant={typeFilter === "habit" ? "default" : "outline"}
-            onClick={() => setTypeFilter("habit")}
+            variant={typeFilter === "habits" ? "default" : "outline"}
+            onClick={() => setTypeFilter("habits")}
           >
             Привычки
           </Button>
@@ -260,10 +284,11 @@ export default function Calendar() {
               {daysInMonth.map((day) => {
                 const dayEvents = getEventsForDay(day);
                 const dayTasks = getTasksForDay(day);
+                const dayHabits = getHabitsForDay(day);
                 const dayStr = format(day, 'yyyy-MM-dd');
                 const isSelected = dayStr === selectedDay;
                 const isToday = isSameDay(day, new Date());
-                const hasItems = dayEvents.length > 0 || dayTasks.length > 0;
+                const hasItems = dayEvents.length > 0 || dayTasks.length > 0 || dayHabits.length > 0;
                 
                 return (
                   <button
@@ -282,12 +307,7 @@ export default function Calendar() {
                         {dayEvents.slice(0, 2).map((event, idx) => (
                           <div
                             key={`event-${idx}`}
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              event.type === 'meeting' ? 'bg-blue-500' :
-                              event.type === 'task' ? 'bg-yellow-500' :
-                              event.type === 'habit' ? 'bg-green-500' :
-                              'bg-purple-500'
-                            }`}
+                            className="w-1.5 h-1.5 rounded-full bg-blue-500"
                           />
                         ))}
                         {dayTasks.slice(0, 2).map((task, idx) => (
@@ -295,9 +315,15 @@ export default function Calendar() {
                             key={`task-${idx}`}
                             className={`w-1.5 h-1.5 rounded-full ${
                               task.priority === 'high' ? 'bg-red-500' :
-                              task.priority === 'medium' ? 'bg-orange-500' :
-                              'bg-gray-500'
+                              task.priority === 'medium' ? 'bg-yellow-500' :
+                              'bg-green-500'
                             }`}
+                          />
+                        ))}
+                        {dayHabits.slice(0, 2).map((habit, idx) => (
+                          <div
+                            key={`habit-${idx}`}
+                            className="w-1.5 h-1.5 rounded-full bg-purple-500"
                           />
                         ))}
                       </div>
@@ -409,9 +435,36 @@ export default function Calendar() {
               </div>
             )}
 
-            {selectedDayEvents.length === 0 && selectedDayTasks.length === 0 && (
+            {/* Привычки выполненные в этот день */}
+            {selectedDayHabits.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground">Выполненные привычки</h3>
+                {selectedDayHabits.map((habit) => (
+                  <div
+                    key={habit.id}
+                    className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="bg-purple-500/10 text-purple-500">
+                            Привычка
+                          </Badge>
+                        </div>
+                        <p className="font-medium">{habit.name}</p>
+                        {habit.description && (
+                          <p className="text-sm text-muted-foreground mt-1">{habit.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {selectedDayEvents.length === 0 && selectedDayTasks.length === 0 && selectedDayHabits.length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">
-                Нет событий и задач на этот день
+                Нет событий, задач и привычек на этот день
               </p>
             )}
           </CardContent>
