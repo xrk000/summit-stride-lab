@@ -27,6 +27,7 @@ export default function Notes() {
   const [editingNote, setEditingNote] = useState<any>(null);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
   const { notes, isLoading, createNote, updateNote, deleteNote } = useNotes();
   const { getEntityTags } = useTags();
 

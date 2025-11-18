@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, FolderKanban, Clock, CheckCircle2, AlertCircle, Pencil, Trash2, Search } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
 import { useTasks } from "@/hooks/useTasks";
+import { useProjectTasks } from "@/hooks/useProjectTasks";
 import { cn } from "@/lib/utils";
 
 export default function Projects() {
@@ -25,6 +26,7 @@ export default function Projects() {
 
   const { projects, isLoading, createProject, updateProject, deleteProject } = useProjects();
   const { tasks } = useTasks();
+  const { projectTasks, addTaskToProject, removeTaskFromProject } = useProjectTasks(selectedProjectForTask || undefined);
   const [projectTasks, setProjectTasks] = useState<Record<string, string[]>>({});
 
   const handleAddProject = (e: React.FormEvent<HTMLFormElement>) => {
