@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, ChevronRight, Pencil, Trash2, Filter, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useTasks, Task } from "@/hooks/useTasks";
 import { useTaskTags } from "@/hooks/useTaskTags";
@@ -25,6 +27,8 @@ export default function Tasks() {
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [filterDate, setFilterDate] = useState<Date | undefined>();
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   
   const { tasks, isLoading, createTask, updateTask, deleteTask, toggleTask } = useTasks();
   const { data: editingTaskTags } = useTaskTags(editingTask?.id || null);
@@ -92,7 +96,9 @@ export default function Tasks() {
       (filter === "active" && !task.completed);
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesFilter && matchesSearch;
+    const matchesDate = !filterDate || (task.due_date && 
+      format(parseISO(task.due_date), "yyyy-MM-dd") === format(filterDate, "yyyy-MM-dd"));
+    return matchesFilter && matchesSearch && matchesDate;
   });
 
   if (isLoading) {
@@ -190,6 +196,39 @@ export default function Tasks() {
             className="pl-9"
           />
         </div>
+        <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="icon" className="relative">
+              <Filter className="h-4 w-4" />
+              {filterDate && (
+                <span className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full" />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <div className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold">Фильтр по дате</h4>
+                {filterDate && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFilterDate(undefined)}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Сбросить
+                  </Button>
+                )}
+              </div>
+              <Calendar
+                mode="single"
+                selected={filterDate}
+                onSelect={setFilterDate}
+                className="pointer-events-auto"
+              />
+            </div>
+          </PopoverContent>
+        </Popover>
         <div className="flex gap-2">
           <Button
             variant={filter === "all" ? "default" : "outline"}
