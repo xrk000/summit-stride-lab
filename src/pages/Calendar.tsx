@@ -95,6 +95,13 @@ export default function Calendar() {
     return filteredEvents.filter(event => event.date === dayStr);
   };
 
+  const getTasksForDay = (day: Date) => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    return tasks.filter(task => task.due_date === dayStr);
+  };
+
+  const selectedDayTasks = tasks.filter(task => task.due_date === selectedDay);
+
   if (isLoading) {
     return (
       <div className="p-8">
@@ -252,9 +259,11 @@ export default function Calendar() {
             <div className="grid grid-cols-7 gap-2">
               {daysInMonth.map((day) => {
                 const dayEvents = getEventsForDay(day);
+                const dayTasks = getTasksForDay(day);
                 const dayStr = format(day, 'yyyy-MM-dd');
                 const isSelected = dayStr === selectedDay;
                 const isToday = isSameDay(day, new Date());
+                const hasItems = dayEvents.length > 0 || dayTasks.length > 0;
                 
                 return (
                   <button
@@ -268,16 +277,26 @@ export default function Calendar() {
                     `}
                   >
                     <div className="text-sm font-medium">{format(day, 'd')}</div>
-                    {dayEvents.length > 0 && (
-                      <div className="flex gap-1 mt-1 justify-center">
-                        {dayEvents.slice(0, 3).map((event, idx) => (
+                    {hasItems && (
+                      <div className="flex gap-1 mt-1 justify-center flex-wrap">
+                        {dayEvents.slice(0, 2).map((event, idx) => (
                           <div
-                            key={idx}
-                            className={`w-1 h-1 rounded-full ${
+                            key={`event-${idx}`}
+                            className={`w-1.5 h-1.5 rounded-full ${
                               event.type === 'meeting' ? 'bg-blue-500' :
                               event.type === 'task' ? 'bg-yellow-500' :
                               event.type === 'habit' ? 'bg-green-500' :
                               'bg-purple-500'
+                            }`}
+                          />
+                        ))}
+                        {dayTasks.slice(0, 2).map((task, idx) => (
+                          <div
+                            key={`task-${idx}`}
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              task.priority === 'high' ? 'bg-red-500' :
+                              task.priority === 'medium' ? 'bg-orange-500' :
+                              'bg-gray-500'
                             }`}
                           />
                         ))}
@@ -297,59 +316,103 @@ export default function Calendar() {
               {format(parseISO(selectedDay), "d MMMM", { locale: ru })}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {selectedDayEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Нет событий на этот день
-              </p>
-            ) : (
-              selectedDayEvents.map((event) => (
-                <div
-                  key={event.id}
-                  className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        {event.time && (
-                          <span className="text-xs text-muted-foreground">{event.time}</span>
+          <CardContent className="space-y-4">
+            {/* События */}
+            {selectedDayEvents.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground">События</h3>
+                {selectedDayEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          {event.time && (
+                            <span className="text-xs text-muted-foreground">{event.time}</span>
+                          )}
+                          <Badge variant={
+                            event.type === 'meeting' ? 'default' :
+                            event.type === 'task' ? 'secondary' :
+                            event.type === 'habit' ? 'outline' :
+                            'default'
+                          }>
+                            {event.type === 'meeting' ? 'Встреча' :
+                             event.type === 'task' ? 'Задача' :
+                             event.type === 'habit' ? 'Привычка' :
+                             'Заметка'}
+                          </Badge>
+                        </div>
+                        <p className="font-medium">{event.title}</p>
+                        {event.description && (
+                          <p className="text-sm text-muted-foreground mt-1">{event.description}</p>
                         )}
-                        <Badge variant={
-                          event.type === 'meeting' ? 'default' :
-                          event.type === 'task' ? 'secondary' :
-                          event.type === 'habit' ? 'outline' :
-                          'default'
-                        }>
-                          {event.type === 'meeting' ? 'Встреча' :
-                           event.type === 'task' ? 'Задача' :
-                           event.type === 'habit' ? 'Привычка' :
-                           'Заметка'}
-                        </Badge>
                       </div>
-                      <p className="font-medium">{event.title}</p>
-                      {event.description && (
-                        <p className="text-sm text-muted-foreground mt-1">{event.description}</p>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditEvent(event)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteEvent(event.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditEvent(event)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteEvent(event.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))}
+              </div>
+            )}
+
+            {/* Задачи с дедлайном на этот день */}
+            {selectedDayTasks.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground">Задачи с дедлайном</h3>
+                {selectedDayTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant={
+                            task.priority === 'high' ? 'destructive' :
+                            task.priority === 'medium' ? 'default' :
+                            'secondary'
+                          }>
+                            {task.priority === 'high' ? 'Высокий' :
+                             task.priority === 'medium' ? 'Средний' :
+                             'Низкий'}
+                          </Badge>
+                          {task.completed && (
+                            <Badge variant="outline" className="bg-green-500/10 text-green-500">
+                              Выполнено
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="font-medium">{task.title}</p>
+                        {task.description && (
+                          <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {selectedDayEvents.length === 0 && selectedDayTasks.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Нет событий и задач на этот день
+              </p>
             )}
           </CardContent>
         </Card>
