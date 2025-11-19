@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, TrendingUp, CheckCircle2, Circle, Pencil, Trash2, Search, Calendar } from "lucide-react";
 import { useHabits } from "@/hooks/useHabits";
 import { cn } from "@/lib/utils";
-import { format, startOfWeek, addDays, subWeeks, isToday } from "date-fns";
+import { format, startOfWeek, addDays, subWeeks, isToday, isFuture, startOfDay } from "date-fns";
 import { ru } from "date-fns/locale";
 
 export default function Habits() {
@@ -62,6 +62,10 @@ export default function Habits() {
   };
 
   const handleToggleHabit = (habitId: string, date: Date) => {
+    // Не позволяем отмечать будущие даты
+    if (isFuture(startOfDay(date))) {
+      return;
+    }
     toggleHabitEntry({ habitId, date: format(date, 'yyyy-MM-dd') });
   };
 
@@ -315,17 +319,20 @@ export default function Habits() {
                   {weekDays.map((date, index) => {
                     const completed = isHabitCompleted(habit.id, date);
                     const today = isToday(date);
+                    const isFutureDate = isFuture(startOfDay(date));
                     
                     return (
                       <button
                         key={index}
                         onClick={() => handleToggleHabit(habit.id, date)}
+                        disabled={isFutureDate}
                         className={cn(
                           "aspect-square rounded-lg border-2 flex flex-col items-center justify-center transition-all",
                           completed 
                             ? "bg-success/20 border-success" 
                             : "border-border hover:border-primary",
-                          today && "ring-2 ring-primary ring-offset-2"
+                          today && "ring-2 ring-primary ring-offset-2",
+                          isFutureDate && "opacity-40 cursor-not-allowed hover:border-border"
                         )}
                       >
                         <span className="text-xs font-medium mb-1">
