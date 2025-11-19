@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 export const useProjectTasks = (projectId?: string) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: projectTasks = [] } = useQuery({
+  const { data: projectTasks = [], refetch } = useQuery({
     queryKey: ["projectTasks", projectId],
     queryFn: async () => {
       if (!projectId) return [];
@@ -24,6 +25,13 @@ export const useProjectTasks = (projectId?: string) => {
     },
     enabled: !!projectId,
   });
+
+  // Refetch when projectId changes
+  useEffect(() => {
+    if (projectId) {
+      refetch();
+    }
+  }, [projectId, refetch]);
 
   const addTaskToProject = useMutation({
     mutationFn: async ({ projectId, taskId }: { projectId: string; taskId: string }) => {

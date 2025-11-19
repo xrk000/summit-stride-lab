@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,13 +10,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, FolderKanban, Clock, CheckCircle2, AlertCircle, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, FolderKanban, Clock, CheckCircle2, AlertCircle, Pencil, Trash2, Search, X, ArrowRight } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
 import { useTasks } from "@/hooks/useTasks";
 import { useProjectTasks } from "@/hooks/useProjectTasks";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function Projects() {
+  const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const [editingProject, setEditingProject] = useState<any>(null);
@@ -23,9 +26,12 @@ export default function Projects() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
   const [selectedProjectForTasks, setSelectedProjectForTasks] = useState<any>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [isCreatingNewTask, setIsCreatingNewTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
 
   const { projects, isLoading, createProject, updateProject, deleteProject } = useProjects();
-  const { tasks } = useTasks();
+  const { tasks, createTask } = useTasks();
   const { projectTasks, addTaskToProject, removeTaskFromProject } = useProjectTasks(selectedProjectForTasks?.id || undefined);
 
   const handleAddProject = (e: React.FormEvent<HTMLFormElement>) => {
@@ -39,6 +45,10 @@ export default function Projects() {
         description: formData.get("description") as string,
         status: formData.get("status") as string,
       });
+      
+      // Обновляем задачи проекта
+      handleUpdateProjectTasks(editingProject.id);
+      
       setEditingProject(null);
     } else {
       createProject({
@@ -48,11 +58,45 @@ export default function Projects() {
       });
     }
     setIsDialogOpen(false);
+    setSelectedTaskIds([]);
     e.currentTarget.reset();
+  };
+
+  const handleUpdateProjectTasks = async (projectId: string) => {
+    // Удаляем задачи, которые были убраны
+    const currentTaskIds = projectTasks.map((t: any) => t.id);
+    const tasksToRemove = currentTaskIds.filter((id: string) => !selectedTaskIds.includes(id));
+    
+    for (const taskId of tasksToRemove) {
+      removeTaskFromProject({ projectId, taskId });
+    }
+    
+    // Добавляем новые задачи
+    const tasksToAdd = selectedTaskIds.filter(id => !currentTaskIds.includes(id));
+    for (const taskId of tasksToAdd) {
+      addTaskToProject({ projectId, taskId });
+    }
+  };
+
+  const handleCreateNewTask = async () => {
+    if (!newTaskTitle.trim()) return;
+    
+    createTask({
+      title: newTaskTitle,
+      description: null,
+      priority: null,
+      completed: false,
+      due_date: null,
+      completed_at: null,
+    });
+    
+    setNewTaskTitle("");
+    setIsCreatingNewTask(false);
   };
 
   const handleEditProject = (project: any) => {
     setEditingProject(project);
+    setSelectedProjectForTasks(project);
     setIsDialogOpen(true);
   };
 
@@ -95,7 +139,18 @@ export default function Projects() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
-          if (!open) setEditingProject(null);
+          if (!open) {
+            setEditingProject(null);
+            setSelectedTaskIds([]);
+            setSelectedProjectForTasks(null);
+          } else if (editingProject) {
+            // При открытии диалога редактирования загружаем задачи проекта
+            setSelectedProjectForTasks(editingProject);
+            // Устанавливаем выбранные задачи из текущего проекта
+            if (projectTasks && projectTasks.length > 0) {
+              setSelectedTaskIds(projectTasks.map((t: any) => t.id));
+            }
+          }
         }}>
           <DialogTrigger asChild>
             <Button className="bg-primary">
@@ -138,6 +193,84 @@ export default function Projects() {
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Задачи */}
+              <div className="space-y-2">
+                <Label>Задачи проекта</Label>
+                <div className="border rounded-lg p-3 space-y-2 max-h-60 overflow-y-auto">
+                  {availableTasks.map((task) => {
+                    const isSelected = selectedTaskIds.includes(task.id);
+                    return (
+                      <div key={task.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`task-${task.id}`}
+                          checked={isSelected}
+                          onCheckedChange={(checked) => {
+                            setSelectedTaskIds(prev =>
+                              checked
+                                ? [...prev, task.id]
+                                : prev.filter(id => id !== task.id)
+                            );
+                          }}
+                        />
+                        <label
+                          htmlFor={`task-${task.id}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                        >
+                          {task.title}
+                        </label>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Создание новой задачи */}
+                  {isCreatingNewTask ? (
+                    <div className="flex gap-2 pt-2 border-t">
+                      <Input
+                        placeholder="Название новой задачи"
+                        value={newTaskTitle}
+                        onChange={(e) => setNewTaskTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleCreateNewTask();
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        size="icon"
+                        onClick={handleCreateNewTask}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => {
+                          setIsCreatingNewTask(false);
+                          setNewTaskTitle("");
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={() => setIsCreatingNewTask(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Создать новую задачу
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
               <Button type="submit" className="w-full">
                 {editingProject ? "Сохранить" : "Создать"}
               </Button>
@@ -209,19 +342,12 @@ export default function Projects() {
                     variant="outline" 
                     size="sm"
                     className="flex-1"
-                    onClick={() => setSelectedProject(project)}
-                  >
-                    Подробнее
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
                     onClick={() => {
+                      setSelectedProject(project);
                       setSelectedProjectForTasks(project);
-                      setIsAddTaskDialogOpen(true);
                     }}
                   >
-                    <Plus className="h-4 w-4" />
+                    Подробнее
                   </Button>
                 </div>
               </CardContent>
@@ -249,63 +375,61 @@ export default function Projects() {
                  'Завершен'}
               </p>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Task to Project Dialog */}
-      <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Добавить задачу к проекту</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Выберите существующую задачу из списка:
-            </p>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {availableTasks.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Нет доступных задач
-                </p>
-              ) : (
-                availableTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="p-3 rounded-lg border border-border hover:bg-muted cursor-pointer transition-colors"
-                    onClick={() => {
-                      // Здесь можно добавить логику связывания задачи с проектом
-                      setIsAddTaskDialogOpen(false);
-                    }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{task.title}</p>
-                        {task.description && (
-                          <p className="text-sm text-muted-foreground">{task.description}</p>
-                        )}
+            
+            {/* Прикрепленные задачи */}
+            <div>
+              <Label>Прикрепленные задачи</Label>
+              {selectedProject && (
+                <div className="mt-2 space-y-2">
+                  {(() => {
+                    const tasks = projectTasks || [];
+                    if (tasks.length === 0) {
+                      return (
+                        <p className="text-sm text-muted-foreground">Нет прикрепленных задач</p>
+                      );
+                    }
+                    return tasks.map((task: any) => (
+                      <div
+                        key={task.id}
+                        className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted cursor-pointer transition-colors"
+                        onClick={() => {
+                          setSelectedProject(null);
+                          navigate('/tasks');
+                        }}
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium">{task.title}</p>
+                          {task.description && (
+                            <p className="text-sm text-muted-foreground">{task.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {task.priority && (
+                            <Badge
+                              variant={
+                                task.priority === "high"
+                                  ? "destructive"
+                                  : task.priority === "medium"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                            >
+                              {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
+                            </Badge>
+                          )}
+                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
                       </div>
-                      {task.priority && (
-                        <Badge
-                          variant={
-                            task.priority === "high"
-                              ? "destructive"
-                              : task.priority === "medium"
-                              ? "default"
-                              : "secondary"
-                          }
-                        >
-                          {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))
+                    ));
+                  })()}
+                </div>
               )}
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Add Task to Project Dialog - УДАЛЕНО, функционал перенесен в основной диалог */}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletingProjectId} onOpenChange={() => setDeletingProjectId(null)}>
