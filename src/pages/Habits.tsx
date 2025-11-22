@@ -11,8 +11,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, TrendingUp, CheckCircle2, Circle, Pencil, Trash2, Search, Calendar } from "lucide-react";
 import { useHabits } from "@/hooks/useHabits";
+import { useTags } from "@/hooks/useTags";
+import { useHabitTags } from "@/hooks/useHabitTags";
+import { useAllHabitTags } from "@/hooks/useAllHabitTags";
+import { TagInput } from "@/components/TagInput";
 import { cn } from "@/lib/utils";
-import { format, startOfWeek, addDays, subWeeks, isToday, isFuture, startOfDay } from "date-fns";
+import { format, startOfWeek, addDays, subWeeks, isToday, isFuture, startOfDay, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
 
 export default function Habits() {
@@ -21,10 +25,13 @@ export default function Habits() {
   const [deletingHabitId, setDeletingHabitId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { locale: ru }));
+  const [selectedTags, setSelectedTags] = useState<Array<{ id: string; name: string }>>([]);
 
   const { habits, habitEntries, isLoading, createHabit, updateHabit, deleteHabit, toggleHabitEntry } = useHabits();
+  const { tags, addTagToEntity, removeTagFromEntity } = useTags();
+  const { data: habitTagsMap } = useAllHabitTags();
 
-  const handleAddHabit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddHabit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
@@ -36,17 +43,39 @@ export default function Habits() {
 
     if (editingHabit) {
       updateHabit({ id: editingHabit.id, ...habitData });
+      
+      // Обновляем теги
+      const currentTags = habitTagsMap?.get(editingHabit.id) || [];
+      const currentTagIds = currentTags.map(t => t.id);
+      const newTagIds = selectedTags.map(t => t.id);
+      
+      // Удаляем теги, которые были сняты
+      const tagsToRemove = currentTagIds.filter(id => !newTagIds.includes(id));
+      tagsToRemove.forEach(tagId => {
+        removeTagFromEntity({ entityType: 'habit', entityId: editingHabit.id, tagId });
+      });
+      
+      // Добавляем новые теги
+      const tagsToAdd = newTagIds.filter(id => !currentTagIds.includes(id));
+      tagsToAdd.forEach(tagId => {
+        addTagToEntity({ entityType: 'habit', entityId: editingHabit.id, tagId });
+      });
+      
       setEditingHabit(null);
     } else {
+      // Создаем привычку, затем добавляем теги
       createHabit(habitData);
     }
     
+    setSelectedTags([]);
     setIsDialogOpen(false);
     e.currentTarget.reset();
   };
 
   const handleEditHabit = (habit: any) => {
     setEditingHabit(habit);
+    const habitTags = habitTagsMap?.get(habit.id) || [];
+    setSelectedTags(habitTags);
     setIsDialogOpen(true);
   };
 
@@ -67,6 +96,21 @@ export default function Habits() {
       return;
     }
     toggleHabitEntry({ habitId, date: format(date, 'yyyy-MM-dd') });
+  };
+
+  const shouldShowHabitForDate = (habit: any, date: Date) => {
+    if (!habit.frequency || habit.frequency === 'daily') return true;
+    
+    const habitCreatedAt = parseISO(habit.created_at);
+    const daysDiff = differenceInDays(startOfDay(date), startOfDay(habitCreatedAt));
+    
+    if (habit.frequency === 'every_2_days') {
+      return daysDiff % 2 === 0;
+    } else if (habit.frequency === 'every_3_days') {
+      return daysDiff % 3 === 0;
+    }
+    
+    return true;
   };
 
   const isHabitCompleted = (habitId: string, date: Date) => {
@@ -105,10 +149,19 @@ export default function Habits() {
     return (completed / 7) * 100;
   };
 
-  const filteredHabits = habits.filter(habit =>
-    habit.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (habit.description && habit.description.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredHabits = habits.filter(habit => {
+    const matchesSearch = habit.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (habit.description && habit.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    // Поиск по тегам
+    if (searchQuery.startsWith('#')) {
+      const tagQuery = searchQuery.slice(1).toLowerCase();
+      const habitTags = habitTagsMap?.get(habit.id) || [];
+      return habitTags.some(tag => tag.name.toLowerCase().includes(tagQuery));
+    }
+    
+    return matchesSearch;
+  });
 
   const stats = {
     total: habits.length,
@@ -138,7 +191,10 @@ export default function Habits() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
-          if (!open) setEditingHabit(null);
+          if (!open) {
+            setEditingHabit(null);
+            setSelectedTags([]);
+          }
         }}>
           <DialogTrigger asChild>
             <Button className="bg-primary">
@@ -146,7 +202,7 @@ export default function Habits() {
               Новая привычка
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingHabit ? "Редактировать привычку" : "Новая привычка"}</DialogTitle>
             </DialogHeader>
@@ -171,17 +227,27 @@ export default function Habits() {
                 />
               </div>
               <div>
-                <Label htmlFor="frequency">Частота</Label>
+                <Label htmlFor="frequency">Периодичность</Label>
                 <Select name="frequency" defaultValue={editingHabit?.frequency || "daily"}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Выберите частоту" />
+                    <SelectValue placeholder="Выберите периодичность" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="daily">Ежедневно</SelectItem>
-                    <SelectItem value="weekly">Еженедельно</SelectItem>
-                    <SelectItem value="custom">Произвольно</SelectItem>
+                    <SelectItem value="every_2_days">Каждые 2 дня</SelectItem>
+                    <SelectItem value="every_3_days">Каждые 3 дня</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label>Теги</Label>
+                <TagInput
+                  entityType="habit"
+                  entityId={editingHabit?.id || null}
+                  selectedTags={selectedTags}
+                  onTagsChange={setSelectedTags}
+                  isNewEntity={!editingHabit}
+                />
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
@@ -256,7 +322,7 @@ export default function Habits() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Поиск привычек..."
+          placeholder="Поиск привычек... (используйте # для поиска по тегам)"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
@@ -268,22 +334,38 @@ export default function Habits() {
         {filteredHabits.map((habit) => {
           const streak = getHabitStreak(habit.id);
           const weekProgress = getWeekProgress(habit.id);
+          const habitTags = habitTagsMap?.get(habit.id) || [];
           
           return (
             <Card key={habit.id} className="shadow-elegant">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 flex-wrap">
                       {habit.name}
                       {streak > 0 && (
                         <Badge variant="secondary" className="ml-2">
                           🔥 {streak} дней
                         </Badge>
                       )}
+                      {habit.frequency === 'every_2_days' && (
+                        <Badge variant="outline">Каждые 2 дня</Badge>
+                      )}
+                      {habit.frequency === 'every_3_days' && (
+                        <Badge variant="outline">Каждые 3 дня</Badge>
+                      )}
                     </CardTitle>
                     {habit.description && (
                       <p className="text-sm text-muted-foreground mt-1">{habit.description}</p>
+                    )}
+                    {habitTags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {habitTags.map(tag => (
+                          <Badge key={tag.id} variant="secondary" className="text-xs">
+                            #{tag.name}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
                   <div className="flex gap-1">
@@ -317,6 +399,7 @@ export default function Habits() {
                 {/* Week Calendar */}
                 <div className="grid grid-cols-7 gap-2">
                   {weekDays.map((date, index) => {
+                    const shouldShow = shouldShowHabitForDate(habit, date);
                     const completed = isHabitCompleted(habit.id, date);
                     const today = isToday(date);
                     const isFutureDate = isFuture(startOfDay(date));
@@ -325,14 +408,16 @@ export default function Habits() {
                       <button
                         key={index}
                         onClick={() => handleToggleHabit(habit.id, date)}
-                        disabled={isFutureDate}
+                        disabled={isFutureDate || !shouldShow}
                         className={cn(
                           "aspect-square rounded-lg border-2 flex flex-col items-center justify-center transition-all",
-                          completed 
+                          shouldShow && completed 
                             ? "bg-success/20 border-success" 
-                            : "border-border hover:border-primary",
-                          today && "ring-2 ring-primary ring-offset-2",
-                          isFutureDate && "opacity-40 cursor-not-allowed hover:border-border"
+                            : shouldShow
+                            ? "border-border hover:border-primary"
+                            : "border-border/30 bg-muted/30",
+                          today && shouldShow && "ring-2 ring-primary ring-offset-2",
+                          (isFutureDate || !shouldShow) && "opacity-40 cursor-not-allowed hover:border-border"
                         )}
                       >
                         <span className="text-xs font-medium mb-1">
@@ -341,10 +426,12 @@ export default function Habits() {
                         <span className="text-xs text-muted-foreground">
                           {format(date, 'd')}
                         </span>
-                        {completed ? (
+                        {shouldShow && completed ? (
                           <CheckCircle2 className="h-5 w-5 text-success mt-1" />
-                        ) : (
+                        ) : shouldShow ? (
                           <Circle className="h-5 w-5 text-muted-foreground mt-1" />
+                        ) : (
+                          <div className="h-5 w-5 mt-1" />
                         )}
                       </button>
                     );
