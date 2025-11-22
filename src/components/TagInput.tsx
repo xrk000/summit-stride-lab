@@ -41,15 +41,29 @@ export const TagInput = ({ entityType, entityId, selectedTags, onTagsChange, isN
   };
 
   const handleCreateTag = async () => {
-    if (newTagName.trim()) {
-      createTag(newTagName.trim());
+    const trimmedName = newTagName.trim();
+    if (trimmedName) {
+      // Проверяем, существует ли уже такой тег
+      const existingTag = tags.find(t => t.name.toLowerCase() === trimmedName.toLowerCase());
+      if (existingTag) {
+        // Если тег существует, просто добавляем его
+        handleAddTag(existingTag.id);
+        setNewTagName("");
+        return;
+      }
+      // Если тега нет, создаем новый
+      createTag(trimmedName);
       setNewTagName("");
     }
   };
 
-  const availableTags = tags.filter(
-    tag => !selectedTags.some(st => st.id === tag.id)
-  );
+  // Фильтруем теги по введенному тексту и исключаем уже выбранные
+  const availableTags = tags.filter(tag => {
+    const matchesSearch = !newTagName.trim() || 
+      tag.name.toLowerCase().includes(newTagName.trim().toLowerCase());
+    const notSelected = !selectedTags.some(st => st.id === tag.id);
+    return matchesSearch && notSelected;
+  });
 
   return (
     <div className="flex flex-wrap gap-2 items-center">

@@ -59,22 +59,40 @@ export const useHabits = () => {
   });
 
   const createHabit = useMutation({
-    mutationFn: async (newHabit: Omit<Habit, "id" | "user_id" | "created_at" | "updated_at">) => {
+    mutationFn: async (newHabit: Omit<Habit, "id" | "user_id" | "created_at" | "updated_at"> & { tagIds?: string[] }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      const { tagIds, ...habitData } = newHabit;
+
       const { data, error } = await supabase
         .from("habits")
-        .insert([{ ...newHabit, user_id: user.id }])
+        .insert([{ ...habitData, user_id: user.id }])
         .select()
         .single();
 
       if (error) throw error;
+
+      // Добавляем теги, если они есть
+      if (tagIds && tagIds.length > 0 && data) {
+        const habitTags = tagIds.map(tagId => ({
+          habit_id: data.id,
+          tag_id: tagId
+        }));
+        
+        const { error: tagsError } = await supabase
+          .from("habit_tags")
+          .insert(habitTags);
+        
+        if (tagsError) console.error("Error adding tags:", tagsError);
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["habits"] });
       queryClient.invalidateQueries({ queryKey: ["userStats"] });
+      queryClient.invalidateQueries({ queryKey: ["habitTags"] });
       toast({
         title: "Привычка создана",
         description: "Привычка успешно добавлена",
