@@ -63,8 +63,9 @@ export default function Habits() {
       
       setEditingHabit(null);
     } else {
-      // Создаем привычку, затем добавляем теги
-      createHabit(habitData);
+      // Создаем привычку с тегами
+      const tagIds = selectedTags.map(t => t.id);
+      createHabit({ ...habitData, tagIds });
     }
     
     setSelectedTags([]);
@@ -150,17 +151,20 @@ export default function Habits() {
   };
 
   const filteredHabits = habits.filter(habit => {
-    const matchesSearch = habit.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (habit.description && habit.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    const searchLower = searchQuery.toLowerCase();
+    const habitTags = habitTagsMap?.get(habit.id) || [];
     
-    // Поиск по тегам
-    if (searchQuery.startsWith('#')) {
-      const tagQuery = searchQuery.slice(1).toLowerCase();
-      const habitTags = habitTagsMap?.get(habit.id) || [];
-      return habitTags.some(tag => tag.name.toLowerCase().includes(tagQuery));
-    }
+    // Поиск по названию
+    const matchesName = habit.name.toLowerCase().includes(searchLower);
     
-    return matchesSearch;
+    // Поиск по описанию
+    const matchesDescription = habit.description && habit.description.toLowerCase().includes(searchLower);
+    
+    // Поиск по тегам (с # или без)
+    const searchTag = searchQuery.startsWith('#') ? searchLower.slice(1) : searchLower;
+    const matchesTags = habitTags.some(tag => tag.name.toLowerCase().includes(searchTag));
+    
+    return matchesName || matchesDescription || matchesTags;
   });
 
   const stats = {
