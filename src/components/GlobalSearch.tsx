@@ -6,6 +6,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, Calendar, CheckSquare, StickyNote, TrendingUp, FolderKanban } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useTasks } from "@/hooks/useTasks";
+import { useNotes } from "@/hooks/useNotes";
+import { useHabits } from "@/hooks/useHabits";
+import { useProjects } from "@/hooks/useProjects";
+import { useCalendarEvents } from "@/hooks/useCalendarEvents";
+import { useAllTaskTags } from "@/hooks/useAllTaskTags";
+import { useAllHabitTags } from "@/hooks/useAllHabitTags";
+import { useAllEventTags } from "@/hooks/useAllEventTags";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 type SearchResult = {
   id: string;
@@ -16,36 +26,6 @@ type SearchResult = {
   route: string;
   metadata?: string;
 };
-
-// Моковые данные для демонстрации
-const mockData: SearchResult[] = [
-  // События
-  { id: "e1", type: "event", title: "Утренняя планерка", description: "09:00 - Встреча", tags: [], route: "/calendar", metadata: "Сегодня" },
-  { id: "e2", type: "event", title: "Презентация проекта", description: "14:00 - Задача", tags: [], route: "/calendar", metadata: "Сегодня" },
-  { id: "e3", type: "event", title: "Тренировка", description: "19:00 - Привычка", tags: [], route: "/calendar", metadata: "Сегодня" },
-  
-  // Задачи
-  { id: "t1", type: "task", title: "Написать отчет", description: "Подготовить квартальный отчет", tags: ["работа"], route: "/tasks", metadata: "Высокий приоритет" },
-  { id: "t2", type: "task", title: "Обновить документацию", description: "Обновить README и API документацию", tags: ["проект-а", "разработка"], route: "/tasks", metadata: "Средний приоритет" },
-  { id: "t3", type: "task", title: "Код ревью", description: "Проверить PR от коллеги", tags: ["работа", "код"], route: "/tasks", metadata: "Низкий приоритет" },
-  { id: "t4", type: "task", title: "Купить продукты", description: "Молоко, хлеб, яйца", tags: ["личное"], route: "/tasks", metadata: "Средний приоритет" },
-  
-  // Заметки
-  { id: "n1", type: "note", title: "Конспект: Веб-разработка", description: "React компоненты, хуки, state management...", tags: ["учеба", "программирование"], route: "/notes", metadata: "456 слов" },
-  { id: "n2", type: "note", title: "Продукты на неделю", description: "Молоко, хлеб, яйца, овощи...", tags: ["личное", "покупки"], route: "/notes", metadata: "42 слова" },
-  { id: "n3", type: "note", title: "Идеи для дипломного проекта", description: "Система управления продуктивностью с интеграциями...", tags: ["работа", "идеи", "проект"], route: "/notes", metadata: "234 слова" },
-  
-  // Привычки
-  { id: "h1", type: "habit", title: "Медитация", description: "10 минут каждое утро", tags: ["здоровье"], route: "/habits", metadata: "7 дней подряд" },
-  { id: "h2", type: "habit", title: "Чтение", description: "30 страниц в день", tags: ["развитие"], route: "/habits", metadata: "14 дней подряд" },
-  { id: "h3", type: "habit", title: "Тренировка", description: "1 час спорта", tags: ["здоровье"], route: "/habits", metadata: "3 дня подряд" },
-  { id: "h4", type: "habit", title: "Изучение языка", description: "Duolingo урок", tags: ["развитие"], route: "/habits", metadata: "21 день подряд" },
-  
-  // Проекты
-  { id: "p1", type: "project", title: "Дипломная работа", description: "Система управления продуктивностью", tags: ["учеба", "разработка"], route: "/projects", metadata: "45% выполнено" },
-  { id: "p2", type: "project", title: "Проект А", description: "Веб-приложение для клиента", tags: ["работа", "frontend"], route: "/projects", metadata: "78% выполнено" },
-  { id: "p3", type: "project", title: "Личный сайт", description: "Портфолио разработчика", tags: ["личное", "portfolio"], route: "/projects", metadata: "12% выполнено" },
-];
 
 const typeConfig = {
   event: { icon: Calendar, label: "Событие", color: "bg-primary/10 text-primary border-primary/20" },
@@ -65,12 +45,150 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
   const [selectedType, setSelectedType] = useState<string>("all");
   const navigate = useNavigate();
 
+  // Получаем данные из БД
+  const { tasks } = useTasks();
+  const { notes } = useNotes();
+  const { habits } = useHabits();
+  const { projects } = useProjects();
+  const { events } = useCalendarEvents();
+
+  // Получаем теги
+  const { data: taskTagsMap } = useAllTaskTags();
+  const { data: habitTagsMap } = useAllHabitTags();
+  const { data: eventTagsMap } = useAllEventTags();
+
+  // Теги для заметок
+  const { data: noteTagsMap } = useQuery({
+    queryKey: ["allNoteTags"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("note_tags")
+        .select(`
+          note_id,
+          tags (id, name)
+        `);
+      if (error) throw error;
+      
+      const map = new Map<string, { id: string; name: string }[]>();
+      data?.forEach((item: any) => {
+        if (!map.has(item.note_id)) {
+          map.set(item.note_id, []);
+        }
+        if (item.tags) {
+          map.get(item.note_id)!.push(item.tags);
+        }
+      });
+      return map;
+    },
+  });
+
+  // Теги для проектов
+  const { data: projectTagsMap } = useQuery({
+    queryKey: ["allProjectTags"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_tags")
+        .select(`
+          project_id,
+          tags (id, name)
+        `);
+      if (error) throw error;
+      
+      const map = new Map<string, { id: string; name: string }[]>();
+      data?.forEach((item: any) => {
+        if (!map.has(item.project_id)) {
+          map.set(item.project_id, []);
+        }
+        if (item.tags) {
+          map.get(item.project_id)!.push(item.tags);
+        }
+      });
+      return map;
+    },
+  });
+
+  // Собираем все данные в единый массив
+  const allData = useMemo((): SearchResult[] => {
+    const results: SearchResult[] = [];
+
+    // Задачи
+    tasks.forEach(task => {
+      const tags = taskTagsMap?.get(task.id)?.map(t => t.name) || [];
+      results.push({
+        id: task.id,
+        type: "task",
+        title: task.title,
+        description: task.description || undefined,
+        tags,
+        route: "/tasks",
+        metadata: task.priority ? `${task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"} приоритет` : undefined,
+      });
+    });
+
+    // Заметки
+    notes.forEach(note => {
+      const tags = noteTagsMap?.get(note.id)?.map(t => t.name) || [];
+      results.push({
+        id: note.id,
+        type: "note",
+        title: note.title,
+        description: note.content || undefined,
+        tags,
+        route: "/notes",
+      });
+    });
+
+    // Привычки
+    habits.forEach(habit => {
+      const tags = habitTagsMap?.get(habit.id)?.map(t => t.name) || [];
+      results.push({
+        id: habit.id,
+        type: "habit",
+        title: habit.name,
+        description: habit.description || undefined,
+        tags,
+        route: "/habits",
+        metadata: habit.frequency || undefined,
+      });
+    });
+
+    // Проекты
+    projects.forEach(project => {
+      const tags = projectTagsMap?.get(project.id)?.map(t => t.name) || [];
+      results.push({
+        id: project.id,
+        type: "project",
+        title: project.name,
+        description: project.description || undefined,
+        tags,
+        route: "/projects",
+        metadata: project.status || undefined,
+      });
+    });
+
+    // События календаря
+    events.forEach(event => {
+      const tags = eventTagsMap?.get(event.id)?.map(t => t.name) || [];
+      results.push({
+        id: event.id,
+        type: "event",
+        title: event.title,
+        description: event.description || undefined,
+        tags,
+        route: "/calendar",
+        metadata: event.time || undefined,
+      });
+    });
+
+    return results;
+  }, [tasks, notes, habits, projects, events, taskTagsMap, noteTagsMap, habitTagsMap, projectTagsMap, eventTagsMap]);
+
   const filteredResults = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     
     if (!query) return [];
 
-    return mockData.filter((item) => {
+    return allData.filter((item) => {
       // Фильтр по типу
       if (selectedType !== "all" && item.type !== selectedType) {
         return false;
@@ -86,14 +204,15 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
         return true;
       }
 
-      // Поиск по тегам
-      if (item.tags?.some(tag => tag.toLowerCase().includes(query))) {
+      // Поиск по тегам (с # или без)
+      const tagQuery = query.startsWith('#') ? query.slice(1) : query;
+      if (item.tags?.some(tag => tag.toLowerCase().includes(tagQuery))) {
         return true;
       }
 
       return false;
     });
-  }, [searchQuery, selectedType]);
+  }, [searchQuery, selectedType, allData]);
 
   const handleResultClick = (result: SearchResult) => {
     navigate(result.route);
@@ -166,7 +285,7 @@ export default function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) 
                 
                 return (
                   <div
-                    key={result.id}
+                    key={`${result.type}-${result.id}`}
                     className="p-4 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
                     onClick={() => handleResultClick(result)}
                   >
