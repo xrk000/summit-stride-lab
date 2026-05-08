@@ -120,7 +120,9 @@ export type Database = {
           created_at: string
           date: string
           description: string | null
+          google_event_id: string | null
           id: string
+          source: string
           time: string | null
           title: string
           type: string | null
@@ -131,7 +133,9 @@ export type Database = {
           created_at?: string
           date: string
           description?: string | null
+          google_event_id?: string | null
           id?: string
+          source?: string
           time?: string | null
           title: string
           type?: string | null
@@ -142,7 +146,9 @@ export type Database = {
           created_at?: string
           date?: string
           description?: string | null
+          google_event_id?: string | null
           id?: string
+          source?: string
           time?: string | null
           title?: string
           type?: string | null
@@ -158,6 +164,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      google_integrations: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          last_sync_at: string | null
+          provider_refresh_token: string | null
+          provider_token: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          last_sync_at?: string | null
+          provider_refresh_token?: string | null
+          provider_token?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          last_sync_at?: string | null
+          provider_refresh_token?: string | null
+          provider_token?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       habit_entries: {
         Row: {
