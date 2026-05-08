@@ -13,6 +13,7 @@ import { useAchievements } from "@/hooks/useAchievements";
 import { useActivityData } from "@/hooks/useActivityData";
 import { useCheckAchievements } from "@/hooks/useCheckAchievements";
 import { useDataExport } from "@/hooks/useDataExport";
+import GoogleCalendarCard from "@/components/GoogleCalendarCard";
 import { useState, useRef, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import {
@@ -117,6 +118,8 @@ const Profile = () => {
           </Button>
         </div>
       </div>
+
+      <GoogleCalendarCard />
 
       {/* Export Section */}
       <Card>
