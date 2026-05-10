@@ -14,6 +14,7 @@ import Analytics from "./pages/Analytics";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import AuthCallback from "./pages/AuthCallback"; // 👈 новый импорт
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/callback" element={<AuthCallback />} /> {/* 👈 публичный колбэк */}
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/calendar" element={<Calendar />} />
