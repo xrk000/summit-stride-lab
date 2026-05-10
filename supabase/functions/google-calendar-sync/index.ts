@@ -63,6 +63,10 @@ Deno.serve(async (req) => {
 
     const admin = createClient(supabaseUrl, serviceKey);
 
+    const now = new Date();
+    const timeMin = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString(); // Start of last month
+    const timeMax = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString(); // End of next month
+
     const { data: integration, error: intErr } = await admin
       .from("google_integrations")
       .select("*")
@@ -86,8 +90,10 @@ Deno.serve(async (req) => {
       : 0;
 
     // Refresh if expired or close to expiry
-    if (Date.now() > expiresAt - 60_000) {
+    if (Date.now() > expiresAt - 300_000) { // Refresh 5 minutes before expiry
+      console.log(`[FIX] Token for user ${userId} is expiring soon, refreshing...`);
       if (!integration.provider_refresh_token) {
+        console.error(`[FIX] Missing refresh token for user ${userId}`);
         return new Response(
           JSON.stringify({
             error:
@@ -110,16 +116,10 @@ Deno.serve(async (req) => {
         .from("google_integrations")
         .update({ provider_token: accessToken, expires_at: newExpiresAt })
         .eq("user_id", userId);
+      console.log(`[FIX] Token refreshed successfully for user ${userId}`);
     }
 
-    // Fetch events from primary calendar
-    const timeMin = new Date(
-      Date.now() - 30 * 24 * 60 * 60 * 1000,
-    ).toISOString(); // last 30 days
-    const timeMax = new Date(
-      Date.now() + 365 * 24 * 60 * 60 * 1000,
-    ).toISOString(); // next year
-
+    console.log(`[FIX] Fetching events for user ${userId} between ${timeMin} and ${timeMax}`);
     const allEvents: any[] = [];
     let pageToken: string | undefined = undefined;
     let pages = 0;
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
       url.searchParams.set("timeMax", timeMax);
       url.searchParams.set("singleEvents", "true");
       url.searchParams.set("orderBy", "startTime");
-      url.searchParams.set("maxResults", "250");
+      url.searchParams.set("maxResults", "2500"); // Max allowed by Google
       if (pageToken) url.searchParams.set("pageToken", pageToken);
 
       const r = await fetch(url.toString(), {
@@ -140,14 +140,18 @@ Deno.serve(async (req) => {
       });
       if (!r.ok) {
         const txt = await r.text();
+        console.error(`[FIX] Google API error for user ${userId}:`, txt);
         throw new Error(`Google Calendar API error ${r.status}: ${txt}`);
       }
       const json = await r.json();
       if (json.items) allEvents.push(...json.items);
       pageToken = json.nextPageToken;
       pages++;
-    } while (pageToken && pages < 10);
+    } while (pageToken && pages < 5); // Increased maxResults, so 5 pages = 12500 events
 
+    console.log(`[FIX] Fetched ${allEvents.length} events from Google for user ${userId}`);
+
+    const googleEventIds = allEvents.map(ev => ev.id);
     let imported = 0;
     for (const ev of allEvents) {
       if (ev.status === "cancelled") continue;
@@ -158,9 +162,10 @@ Deno.serve(async (req) => {
       let date: string;
       let time: string | null = null;
       if (ev.start?.dateTime) {
-        const d = new Date(ev.start.dateTime);
-        date = d.toISOString().split("T")[0];
-        time = d.toTimeString().slice(0, 5);
+        // Use full ISO string to avoid local timezone issues during split
+        const localStr = ev.start.dateTime.substring(0, 16); // "2026-05-09T01:00"
+        date = localStr.split("T")[0];
+        time = localStr.split("T")[1];
       } else {
         date = ev.start.date;
       }
@@ -185,7 +190,22 @@ Deno.serve(async (req) => {
           { onConflict: "user_id,google_event_id" },
         );
       if (!upErr) imported++;
-      else console.error("upsert error", upErr, ev.id);
+      else console.error(`[FIX] Upsert error for event ${ev.id}:`, upErr);
+    }
+
+    // REMOVE DELETED EVENTS: delete local google events that are NOT in the fetched list
+    console.log(`[FIX] Cleaning up deleted events for user ${userId}`);
+    const { error: delErr, count: delCount } = await admin
+      .from("calendar_events")
+      .delete()
+      .eq("user_id", userId)
+      .eq("type", "google")
+      .not("google_event_id", "in", `(${googleEventIds.join(',')})`);
+
+    if (delErr) {
+      console.error(`[FIX] Cleanup error for user ${userId}:`, delErr);
+    } else {
+      console.log(`[FIX] Removed ${delCount || 0} stale events for user ${userId}`);
     }
 
     await admin
@@ -194,7 +214,12 @@ Deno.serve(async (req) => {
       .eq("user_id", userId);
 
     return new Response(
-      JSON.stringify({ success: true, imported, total: allEvents.length }),
+      JSON.stringify({
+        success: true,
+        imported,
+        deleted: delCount || 0,
+        total: allEvents.length
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

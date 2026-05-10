@@ -15,6 +15,7 @@ import { useHabits } from "@/hooks/useHabits";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useAllTaskTags } from "@/hooks/useAllTaskTags";
 import { TaskTagSelector } from "@/components/TaskTagSelector";
+import VkConnect from "@/components/VkConnect"; // 👈 новый импорт
 import { format, isToday, isFuture, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -28,7 +29,7 @@ export default function Dashboard() {
   const { events } = useCalendarEvents();
   const { data: taskTagsMap } = useAllTaskTags();
 
-  const todayTasks = tasks.filter(task => 
+  const todayTasks = tasks.filter(task =>
     task.due_date && isToday(parseISO(task.due_date))
   );
 
@@ -48,13 +49,13 @@ export default function Dashboard() {
       date.setDate(date.getDate() - i);
       return format(date, 'yyyy-MM-dd');
     });
-    
+
     const completedDays = habitEntries.filter(
-      entry => entry.habit_id === habit.id && 
-      entry.completed && 
-      last7Days.includes(entry.date)
+      entry => entry.habit_id === habit.id &&
+        entry.completed &&
+        last7Days.includes(entry.date)
     ).length;
-    
+
     return {
       id: habit.id,
       name: habit.name,
@@ -170,8 +171,8 @@ export default function Dashboard() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="priority">Приоритет</Label>
-                      <select 
-                        name="priority" 
+                      <select
+                        name="priority"
                         className="w-full px-3 py-2 border border-border rounded-md bg-background"
                         required
                       >
@@ -184,7 +185,7 @@ export default function Dashboard() {
                       <Label htmlFor="description">Описание</Label>
                       <Textarea id="description" name="description" />
                     </div>
-                    <TaskTagSelector 
+                    <TaskTagSelector
                       selectedTagIds={selectedTagIds}
                       onTagsChange={setSelectedTagIds}
                     />
@@ -240,8 +241,8 @@ export default function Dashboard() {
                       task.priority === "high"
                         ? "destructive"
                         : task.priority === "medium"
-                        ? "default"
-                        : "secondary"
+                          ? "default"
+                          : "secondary"
                     }
                   >
                     {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
@@ -304,6 +305,15 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 👇 БЛОК ПРИВЯЗКИ ВК */}
+      <div className="mt-6">
+        <Card>
+          <CardContent className="pt-6">
+            <VkConnect />
           </CardContent>
         </Card>
       </div>

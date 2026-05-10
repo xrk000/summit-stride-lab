@@ -49,9 +49,13 @@ export default function GoogleCalendarCard() {
           )}
           {isConnected && (
             <>
+              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 gap-1.5 py-1.5 px-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                Подключено
+              </Badge>
               <Button onClick={() => sync()} disabled={isSyncing} className="gap-2">
                 <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-                {isSyncing ? "Синхронизация..." : "Синхронизировать сейчас"}
+                {isSyncing ? "Синхронизация..." : "Обновить"}
               </Button>
               <Button
                 onClick={() => disconnect()}

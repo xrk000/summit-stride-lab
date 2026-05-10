@@ -178,6 +178,13 @@ export const useTasks = () => {
       queryClient.invalidateQueries({ queryKey: ["userStats"] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
     },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message || "Не удалось обновить статус задачи",
+        variant: "destructive",
+      });
+    },
   });
 
   return {

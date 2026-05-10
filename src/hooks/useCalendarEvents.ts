@@ -12,6 +12,9 @@ export interface CalendarEvent {
   user_id: string;
   created_at: string;
   updated_at: string;
+  // Google Calendar fields
+  source?: string | null;        // 'manual' | 'google'
+  google_event_id?: string | null;
 }
 
 export const useCalendarEvents = () => {
@@ -36,13 +39,13 @@ export const useCalendarEvents = () => {
   });
 
   const createEvent = useMutation({
-    mutationFn: async (newEvent: Omit<CalendarEvent, "id" | "user_id" | "created_at" | "updated_at">) => {
+    mutationFn: async (newEvent: Omit<CalendarEvent, "id" | "user_id" | "created_at" | "updated_at" | "source" | "google_event_id">) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase
         .from("calendar_events")
-        .insert([{ ...newEvent, user_id: user.id }])
+        .insert([{ ...newEvent, user_id: user.id, source: "manual" }])
         .select()
         .single();
 

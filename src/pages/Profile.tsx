@@ -14,6 +14,7 @@ import { useActivityData } from "@/hooks/useActivityData";
 import { useCheckAchievements } from "@/hooks/useCheckAchievements";
 import { useDataExport } from "@/hooks/useDataExport";
 import GoogleCalendarCard from "@/components/GoogleCalendarCard";
+import VkConnect from "@/components/VkConnect"; // 👈 новый импорт
 import { useState, useRef, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import {
@@ -42,7 +43,7 @@ const Profile = () => {
   const { data: monthActivity } = useActivityData(30);
   const checkAchievements = useCheckAchievements();
   const { exportToCSV, exportToPDF } = useDataExport();
-  
+
   const [username, setUsername] = useState("");
   const [timezone, setTimezone] = useState("GMT+3");
   const [exportType, setExportType] = useState<"all" | "tasks" | "notes" | "habits" | "projects" | "calendar">("all");
@@ -56,7 +57,6 @@ const Profile = () => {
   }, [profile]);
 
   useEffect(() => {
-    // Check achievements when component mounts
     checkAchievements.mutate();
   }, []);
 
@@ -108,8 +108,8 @@ const Profile = () => {
           <Badge variant="secondary" className="h-fit">
             {earnedAchievements.length} достижений
           </Badge>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => checkAchievements.mutate()}
             disabled={checkAchievements.isPending}
@@ -371,6 +371,17 @@ const Profile = () => {
                 </div>
                 <Button onClick={handleSaveProfile}>Сохранить изменения</Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* 👇 НОВАЯ КАРТОЧКА ИНТЕГРАЦИИ */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Интеграции</CardTitle>
+              <CardDescription>Подключение внешних сервисов</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <VkConnect />
             </CardContent>
           </Card>
         </TabsContent>

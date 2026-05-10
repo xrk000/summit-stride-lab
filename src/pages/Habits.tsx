@@ -128,11 +128,11 @@ export default function Habits() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     
     let streak = 0;
-    let currentDate = new Date();
+    let currentStreakDate = new Date();
     
     for (const entry of entries) {
       const entryDate = new Date(entry.date);
-      const diffDays = Math.floor((currentDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
+      const diffDays = Math.floor((currentStreakDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
       
       if (diffDays === streak) {
         streak++;
