@@ -18,7 +18,7 @@ export default function VkConnect() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from("vk_connections")
       .select("vk_user_id")
       .eq("user_id", user.id)
@@ -43,8 +43,8 @@ export default function VkConnect() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Не авторизован");
 
-      await supabase.from("vk_connections").delete().eq("user_id", user.id);
-      const { error: insertError } = await supabase
+      await (supabase as any).from("vk_connections").delete().eq("user_id", user.id);
+      const { error: insertError } = await (supabase as any)
         .from("vk_connections")
         .insert({ user_id: user.id, vk_user_id: vkIdNum });
 
@@ -62,7 +62,7 @@ export default function VkConnect() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      await supabase.from("vk_connections").delete().eq("user_id", user.id);
+      await (supabase as any).from("vk_connections").delete().eq("user_id", user.id);
       setConnected(null);
       setVkId("");
     } catch (err: any) {

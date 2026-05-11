@@ -17,13 +17,13 @@ export const useYandexCalendar = () => {
     queryFn: async (): Promise<YandexIntegration | null> => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("yandex_integrations")
         .select("user_id, last_sync_at")
         .eq("user_id", user.id)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as YandexIntegration | null;
     },
   });
 
@@ -31,7 +31,7 @@ export const useYandexCalendar = () => {
   const markSynced = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase
+    await (supabase as any)
       .from("yandex_integrations")
       .upsert({ user_id: user.id, last_sync_at: new Date().toISOString() }, { onConflict: "user_id" });
     queryClient.invalidateQueries({ queryKey: ["yandexIntegration"] });
@@ -43,7 +43,7 @@ export const useYandexCalendar = () => {
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
-      await supabase.from("yandex_integrations").delete().eq("user_id", user.id);
+      await (supabase as any).from("yandex_integrations").delete().eq("user_id", user.id);
       await supabase.from("calendar_events").delete().eq("user_id", user.id).eq("source", "yandex");
     },
     onSuccess: () => {

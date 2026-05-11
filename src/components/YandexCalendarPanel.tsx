@@ -75,7 +75,7 @@ export const YandexCalendarPanel = () => {
 
       let imported = 0;
       for (const ev of events) {
-        const { error } = await supabase.from("calendar_events").upsert(
+        const { error } = await (supabase as any).from("calendar_events").upsert(
           { user_id: user.id, title: ev.title, description: ev.description, date: ev.date, time: ev.time, type: "yandex", source: "yandex", yandex_event_uid: ev.uid },
           { onConflict: "user_id,yandex_event_uid" }
         );
