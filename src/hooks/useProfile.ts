@@ -82,7 +82,9 @@ export const useProfile = () => {
       return publicUrl;
     },
     onSuccess: (url) => {
-      updateProfile.mutate({ avatar_url: url });
+      // Добавляем timestamp для обхода кеширования браузером
+      const cacheBustedUrl = `${url}?t=${Date.now()}`;
+      updateProfile.mutate({ avatar_url: cacheBustedUrl });
     },
     onError: (error) => {
       toast({
@@ -96,7 +98,7 @@ export const useProfile = () => {
   return {
     profile,
     isLoading,
-    updateProfile: updateProfile.mutate,
-    uploadAvatar: uploadAvatar.mutate,
+    updateProfile,
+    uploadAvatar,
   };
 };

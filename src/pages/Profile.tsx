@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, Calendar, FileText, Target, Trophy, Star, FolderOpen, Upload, Download } from "lucide-react";
+import { CheckCircle2, Calendar, FileText, Target, Trophy, Star, FolderOpen, Upload, Download, Loader2 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useAchievements } from "@/hooks/useAchievements";
@@ -61,7 +61,7 @@ const Profile = () => {
   }, []);
 
   const handleSaveProfile = () => {
-    updateProfile({ username, timezone });
+    updateProfile.mutate({ username, timezone });
   };
 
   const handleAvatarClick = () => {
@@ -71,7 +71,10 @@ const Profile = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      uploadAvatar(file);
+      uploadAvatar.mutate(file);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -90,8 +93,17 @@ const Profile = () => {
             </AvatarFallback>
           </Avatar>
           <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={handleAvatarClick}>
-            <Upload className="h-6 w-6 text-white" />
+            {uploadAvatar.isPending ? (
+              <Loader2 className="h-6 w-6 text-white animate-spin" />
+            ) : (
+              <Upload className="h-6 w-6 text-white" />
+            )}
           </div>
+          {uploadAvatar.isPending && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
+              <Loader2 className="h-6 w-6 text-white animate-spin" />
+            </div>
+          )}
           <input
             ref={fileInputRef}
             type="file"
