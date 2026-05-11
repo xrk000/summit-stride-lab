@@ -142,7 +142,7 @@ export const useGoogleCalendar = () => {
       options: {
         scopes: GOOGLE_CALENDAR_SCOPE,
         // Возвращаемся на ту же страницу откуда нажали
-        redirectTo: `${window.location.origin}${window.location.pathname}`,
+        redirectTo: `${window.location.origin}/auth/callback`,
         queryParams: {
           access_type: "offline",
           prompt: "consent",
