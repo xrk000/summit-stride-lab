@@ -1,52 +1,27 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, Calendar, FileText, Target, Trophy, Star, FolderOpen, Upload, Download, Loader2 } from "lucide-react";
+import { CheckCircle2, Calendar, FileText, Target, Upload, Loader2 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserStats } from "@/hooks/useUserStats";
-import { useAchievements } from "@/hooks/useAchievements";
 import { useActivityData } from "@/hooks/useActivityData";
-import { useCheckAchievements } from "@/hooks/useCheckAchievements";
-import { useDataExport } from "@/hooks/useDataExport";
 import GoogleCalendarCard from "@/components/GoogleCalendarCard";
-import VkConnect from "@/components/VkConnect"; // 👈 новый импорт
+import VkConnect from "@/components/VkConnect";
 import { useState, useRef, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-const iconMap: Record<string, any> = {
-  CheckCircle2,
-  Target,
-  Trophy,
-  Calendar,
-  Star,
-  FileText,
-  FolderOpen,
-};
 
 const Profile = () => {
   const { profile, updateProfile, uploadAvatar } = useProfile();
   const { data: stats, isLoading: statsLoading } = useUserStats();
-  const { data: achievements } = useAchievements();
   const { data: weekActivity } = useActivityData(7);
   const { data: monthActivity } = useActivityData(30);
-  const checkAchievements = useCheckAchievements();
-  const { exportToCSV, exportToPDF } = useDataExport();
 
   const [username, setUsername] = useState("");
   const [timezone, setTimezone] = useState("GMT+3");
-  const [exportType, setExportType] = useState<"all" | "tasks" | "notes" | "habits" | "projects" | "calendar">("all");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -55,10 +30,6 @@ const Profile = () => {
       setTimezone(profile.timezone || "GMT+3");
     }
   }, [profile]);
-
-  useEffect(() => {
-    checkAchievements.mutate();
-  }, []);
 
   const handleSaveProfile = () => {
     updateProfile.mutate({ username, timezone });
@@ -72,18 +43,15 @@ const Profile = () => {
     const file = e.target.files?.[0];
     if (file) {
       uploadAvatar.mutate(file);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   const completionRate = stats ? Math.round((stats.tasksCompleted / (stats.totalTasks || 1)) * 100) : 0;
-  const earnedAchievements = achievements?.filter(a => a.earned) || [];
-  const lockedAchievements = achievements?.filter(a => !a.earned) || [];
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
+      {/* Шапка профиля */}
       <div className="flex items-center gap-6">
         <div className="relative group">
           <Avatar className="h-24 w-24 cursor-pointer" onClick={handleAvatarClick}>
@@ -92,108 +60,25 @@ const Profile = () => {
               {profile?.username?.[0]?.toUpperCase() || "U"}
             </AvatarFallback>
           </Avatar>
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={handleAvatarClick}>
-            {uploadAvatar.isPending ? (
-              <Loader2 className="h-6 w-6 text-white animate-spin" />
-            ) : (
-              <Upload className="h-6 w-6 text-white" />
-            )}
-          </div>
-          {uploadAvatar.isPending && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-full">
-              <Loader2 className="h-6 w-6 text-white animate-spin" />
-            </div>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-        </div>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Личный кабинет</h1>
-          <p className="text-muted-foreground">Ваша статистика и достижения</p>
-        </div>
-        <div className="flex gap-2">
-          <Badge variant="secondary" className="h-fit">
-            {earnedAchievements.length} достижений
-          </Badge>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => checkAchievements.mutate()}
-            disabled={checkAchievements.isPending}
+          <div
+            className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+            onClick={handleAvatarClick}
           >
-            {checkAchievements.isPending ? "Проверка..." : "Проверить достижения"}
-          </Button>
+            {uploadAvatar.isPending
+              ? <Loader2 className="h-6 w-6 text-white animate-spin" />
+              : <Upload className="h-6 w-6 text-white" />}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Личный кабинет</h1>
+          <p className="text-muted-foreground">Ваша статистика и настройки</p>
         </div>
       </div>
 
       <GoogleCalendarCard />
 
-      {/* Export Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5" />
-            Экспорт данных
-          </CardTitle>
-          <CardDescription>
-            Экспортируйте свои данные и статистику в различных форматах
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <Label htmlFor="export-type">Тип данных</Label>
-                <Select value={exportType} onValueChange={(value: any) => setExportType(value)}>
-                  <SelectTrigger id="export-type">
-                    <SelectValue placeholder="Выберите тип данных" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Все данные</SelectItem>
-                    <SelectItem value="tasks">Только задачи</SelectItem>
-                    <SelectItem value="notes">Только заметки</SelectItem>
-                    <SelectItem value="habits">Только привычки</SelectItem>
-                    <SelectItem value="projects">Только проекты</SelectItem>
-                    <SelectItem value="calendar">Только календарь</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={() => exportToCSV(exportType)}
-                variant="default"
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Экспорт в CSV
-              </Button>
-              <Button
-                onClick={() => exportToPDF(true)}
-                variant="secondary"
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Экспорт в PDF (со статистикой)
-              </Button>
-              <Button
-                onClick={() => exportToPDF(false)}
-                variant="outline"
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Экспорт в PDF (без статистики)
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
+      {/* Статистика */}
       {!statsLoading && stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
@@ -207,7 +92,6 @@ const Profile = () => {
               <Progress value={completionRate} className="mt-2" />
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Заметки</CardTitle>
@@ -218,7 +102,6 @@ const Profile = () => {
               <p className="text-xs text-muted-foreground mt-1">Создано заметок</p>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">События</CardTitle>
@@ -229,7 +112,6 @@ const Profile = () => {
               <p className="text-xs text-muted-foreground mt-1">Запланировано событий</p>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Привычки</CardTitle>
@@ -246,7 +128,6 @@ const Profile = () => {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Обзор</TabsTrigger>
-          <TabsTrigger value="achievements">Достижения</TabsTrigger>
           <TabsTrigger value="activity">Активность</TabsTrigger>
           <TabsTrigger value="settings">Настройки</TabsTrigger>
         </TabsList>
@@ -264,39 +145,6 @@ const Profile = () => {
                   <span className="text-sm text-muted-foreground">{completionRate}%</span>
                 </div>
                 <Progress value={completionRate} />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="achievements" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Ваши достижения</CardTitle>
-              <CardDescription>Заработано: {earnedAchievements.length} из {achievements?.length || 0}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {earnedAchievements.map((achievement) => {
-                  const Icon = iconMap[achievement.icon];
-                  return (
-                    <div key={achievement.id} className="flex flex-col items-center p-4 bg-primary/5 rounded-lg border border-primary/20">
-                      {Icon && <Icon className="h-8 w-8 text-primary mb-2" />}
-                      <span className="text-sm font-medium text-center">{achievement.name}</span>
-                      <span className="text-xs text-muted-foreground text-center mt-1">{achievement.description}</span>
-                    </div>
-                  );
-                })}
-                {lockedAchievements.map((achievement) => {
-                  const Icon = iconMap[achievement.icon];
-                  return (
-                    <div key={achievement.id} className="flex flex-col items-center p-4 bg-muted/50 rounded-lg border border-border opacity-50">
-                      {Icon && <Icon className="h-8 w-8 text-muted-foreground mb-2" />}
-                      <span className="text-sm text-center text-muted-foreground">{achievement.name}</span>
-                      <span className="text-xs text-muted-foreground text-center mt-1">{achievement.description}</span>
-                    </div>
-                  );
-                })}
               </div>
             </CardContent>
           </Card>
@@ -325,7 +173,6 @@ const Profile = () => {
               )}
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>Активность за месяц</CardTitle>
@@ -360,12 +207,7 @@ const Profile = () => {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="username">Имя пользователя</Label>
-                  <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Ваше имя"
-                  />
+                  <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Ваше имя" />
                 </div>
                 <div>
                   <Label htmlFor="timezone">Часовой пояс</Label>
@@ -386,7 +228,6 @@ const Profile = () => {
             </CardContent>
           </Card>
 
-          {/* 👇 НОВАЯ КАРТОЧКА ИНТЕГРАЦИИ */}
           <Card>
             <CardHeader>
               <CardTitle>Интеграции</CardTitle>
