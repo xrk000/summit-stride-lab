@@ -60,11 +60,43 @@ export const useTags = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tags"] });
+      queryClient.invalidateQueries({ queryKey: ["allTaskTags"] });
+      queryClient.invalidateQueries({ queryKey: ["taskTags"] });
+    },
+  });
+
+  const updateTag = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { data, error } = await supabase
+        .from("tags")
+        .update({ name })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tags"] });
+      queryClient.invalidateQueries({ queryKey: ["allTaskTags"] });
+      queryClient.invalidateQueries({ queryKey: ["taskTags"] });
+      toast({
+        title: "Тег обновлён",
+        description: "Название тега изменено",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Ошибка",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
   const addTagToEntity = useMutation({
-    mutationFn: async ({ entityType, entityId, tagId }: { 
+    mutationFn: async ({ entityType, entityId, tagId }: {
       entityType: 'task' | 'note' | 'habit' | 'project' | 'calendar_event';
       entityId: string;
       tagId: string;
@@ -93,7 +125,7 @@ export const useTags = () => {
   });
 
   const removeTagFromEntity = useMutation({
-    mutationFn: async ({ entityType, entityId, tagId }: { 
+    mutationFn: async ({ entityType, entityId, tagId }: {
       entityType: 'task' | 'note' | 'habit' | 'project' | 'calendar_event';
       entityId: string;
       tagId: string;
@@ -123,7 +155,7 @@ export const useTags = () => {
 
   const getEntityTags = async (entityType: 'task' | 'note' | 'habit' | 'project' | 'calendar_event', entityId: string) => {
     let data: any;
-    
+
     if (entityType === 'task') {
       const result = await supabase.from('task_tags').select(`tag_id, tags(*)`).eq('task_id', entityId);
       data = result.data;
@@ -140,7 +172,7 @@ export const useTags = () => {
       const result = await supabase.from('calendar_event_tags').select(`tag_id, tags(*)`).eq('event_id', entityId);
       data = result.data;
     }
-    
+
     return data ? data.map((item: any) => item.tags) : [];
   };
 
@@ -148,6 +180,7 @@ export const useTags = () => {
     tags: tags || [],
     isLoading,
     createTag: createTag.mutate,
+    updateTag: updateTag.mutate,
     deleteTag: deleteTag.mutate,
     addTagToEntity: addTagToEntity.mutate,
     removeTagFromEntity: removeTagFromEntity.mutate,

@@ -7,13 +7,14 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, FileText, Tag, Search, Eye, Pencil, Trash2, X, Sparkles, ChevronRight } from "lucide-react";
+import { Plus, FileText, Tag, Search, Eye, Pencil, Trash2, X, Sparkles, ChevronRight, Save } from "lucide-react";
 import { useNotes } from "@/hooks/useNotes";
 import { useTags } from "@/hooks/useTags";
+import { useNoteTemplates, type NoteTemplate } from "@/hooks/useNoteTemplates";
 import { TagInput } from "@/components/TagInput";
 import { FileUpload } from "@/components/FileUpload";
 
-// ─── Шаблоны ────────────────────────────────────────────────────────────────
+// ─── Шаблоны (встроенные) ───────────────────────────────────────────────────
 
 const TEMPLATE_CATEGORIES = [
   { id: "work", label: "Работа", emoji: "💼" },
@@ -30,7 +31,7 @@ const NOTE_TEMPLATES = [
     color: "from-blue-500/20 to-blue-600/10", accent: "blue",
     desc: "Участники, повестка, решения и задачи",
     template: {
-      title: "Протокол встречи — {дата}",
+      title: "Протокол встречи — {{date}}",
       content: `🗣️ ВСТРЕЧА\nДата: \nМесто / ссылка: \n\n👥 УЧАСТНИКИ\n— \n— \n\n📋 ПОВЕСТКА\n1. \n2. \n3. \n\n💬 ОБСУЖДЕНИЕ\n\n\n✅ РЕШЕНИЯ\n— \n— \n\n📌 ЗАДАЧИ\n— [ ] Задача — Ответственный — Срок\n— [ ] Задача — Ответственный — Срок\n\n📅 Следующая встреча: `
     }
   },
@@ -50,7 +51,7 @@ const NOTE_TEMPLATES = [
     color: "from-emerald-500/20 to-emerald-600/10", accent: "emerald",
     desc: "Заметки по итогам звонка или переговоров",
     template: {
-      title: "Звонок с {имя} — {дата}",
+      title: "Звонок с {имя} — {{date}}",
       content: `📞 ЗВОНОК\nС кем: \nДата и время: \nПродолжительность: \n\n🎯 Цель разговора:\n\n\n📝 Ключевые моменты:\n— \n— \n— \n\n🤝 Договорённости:\n— \n— \n\n➡️ Мои следующие шаги:\n— [ ] \n— [ ] \n\n📅 Следующий контакт: `
     }
   },
@@ -60,7 +61,7 @@ const NOTE_TEMPLATES = [
     color: "from-orange-500/20 to-orange-600/10", accent: "orange",
     desc: "Итоги недели: выполнено, план, проблемы",
     template: {
-      title: "Отчёт — неделя {дата}",
+      title: "Отчёт — неделя {{date}}",
       content: `📊 ЕЖЕНЕДЕЛЬНЫЙ ОТЧЁТ\nПериод: \n\n✅ ВЫПОЛНЕНО\n— \n— \n— \n\n🔄 В ПРОЦЕССЕ\n— \n— \n\n📅 ПЛАН НА СЛЕДУЮЩУЮ НЕДЕЛЮ\n— [ ] \n— [ ] \n— [ ] \n\n🚧 ПРОБЛЕМЫ И БЛОКЕРЫ\n— \n\n💡 ИДЕИ И ПРЕДЛОЖЕНИЯ\n— `
     }
   },
@@ -136,7 +137,7 @@ const NOTE_TEMPLATES = [
     color: "from-pink-500/20 to-pink-600/10", accent: "pink",
     desc: "Рефлексия, благодарность и настроение дня",
     template: {
-      title: "Дневник — {дата}",
+      title: "Дневник — {{date}}",
       content: `🌅 ДЕНЬ: \n\n😊 НАСТРОЕНИЕ (1-10): \n\n🙏 3 ВЕЩИ ЗА КОТОРЫЕ Я БЛАГОДАРЕН:\n1. \n2. \n3. \n\n⚡ ЧТО ДАЛО МНЕ ЭНЕРГИЮ:\n\n\n😤 ЧТО ЗАБРАЛО ЭНЕРГИЮ:\n\n\n🏆 ГЛАВНОЕ ДОСТИЖЕНИЕ ДНЯ:\n\n\n💭 О ЧЁМ ДУМАЮ:\n\n\n🌙 НАМЕРЕНИЕ НА ЗАВТРА:\n`
     }
   },
@@ -166,7 +167,7 @@ const NOTE_TEMPLATES = [
     color: "from-red-500/20 to-red-600/10", accent: "red",
     desc: "Программа тренировки с подходами и весами",
     template: {
-      title: "Тренировка — {дата}",
+      title: "Тренировка — {{date}}",
       content: `💪 ТРЕНИРОВКА\nДата: \nТип: (силовая / кардио / растяжка)\nНастроение до: ⭐⭐⭐⭐⭐\n\n🏋️ УПРАЖНЕНИЯ:\n\nУпражнение 1: \nПодходы × Повторения: \nВес: \n\nУпражнение 2: \nПодходы × Повторения: \nВес: \n\nУпражнение 3: \nПодходы × Повторения: \nВес: \n\nУпражнение 4: \nПодходы × Повторения: \nВес: \n\n⏱️ Длительность: \n🔥 Самочувствие после: ⭐⭐⭐⭐⭐\n\n📝 Заметки:`
     }
   },
@@ -230,8 +231,10 @@ export default function Notes() {
 
   const { notes, isLoading, createNote, updateNote, deleteNote } = useNotes();
   const { getEntityTags, addTagToEntity } = useTags();
+  const { templates: userTemplates, createTemplate, deleteTemplate } = useNoteTemplates();
   const [noteTags, setNoteTags] = useState<Record<string, any[]>>({});
 
+  // Загружаем теги для всех заметок при монтировании и после изменений
   useEffect(() => {
     const loadAllTags = async () => {
       const tagsMap: Record<string, any[]> = {};
@@ -243,6 +246,53 @@ export default function Notes() {
     };
     if (notes.length > 0) loadAllTags();
   }, [notes, getEntityTags]);
+
+  // Функция замены переменных {{date}} и {{time}}
+  const replaceVars = (str: string) => {
+    const now = new Date();
+    const date = now.toLocaleDateString();
+    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return str.replace(/\{\{date\}\}/g, date).replace(/\{\{time\}\}/g, time);
+  };
+
+  // Открыть стандартный шаблон
+  const openWithTemplate = (template: any) => {
+    const title = replaceVars(template.template.title);
+    const content = replaceVars(template.template.content);
+    setSelectedTemplate({
+      ...template,
+      template: { title, content }
+    });
+    setIsTemplatePickerOpen(false);
+    setIsDialogOpen(true);
+  };
+
+  // Открыть пользовательский шаблон
+  const openWithUserTemplate = (tpl: NoteTemplate) => {
+    const title = replaceVars(tpl.title);
+    const content = tpl.content ? replaceVars(tpl.content) : "";
+    // Приводим к формату, ожидаемому формой (как у статических шаблонов)
+    setSelectedTemplate({
+      name: tpl.name,
+      emoji: "📄",
+      template: { title, content }
+    });
+    setIsTemplatePickerOpen(false);
+    setIsDialogOpen(true);
+  };
+
+  // Сохранить текущую заметку (из просмотра) как шаблон
+  const saveCurrentNoteAsTemplate = async () => {
+    if (!selectedNote) return;
+    const name = prompt("Введите название шаблона:", selectedNote.title);
+    if (name) {
+      await createTemplate.mutate({
+        name,
+        title: selectedNote.title,
+        content: selectedNote.content || "",
+      });
+    }
+  };
 
   const handleAddNote = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -270,12 +320,6 @@ export default function Notes() {
     setIsDialogOpen(false);
     setSelectedTemplate(null);
     e.currentTarget.reset();
-  };
-
-  const openWithTemplate = (template: any) => {
-    setSelectedTemplate(template);
-    setIsTemplatePickerOpen(false);
-    setIsDialogOpen(true);
   };
 
   const filteredNotes = notes.filter(note => {
@@ -514,8 +558,8 @@ export default function Notes() {
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${activeCategory === cat.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
                   }`}
               >
                 {cat.emoji} {cat.label}
@@ -524,22 +568,56 @@ export default function Notes() {
           </div>
 
           {/* Templates grid */}
-          <div className="overflow-y-auto flex-1 pr-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2">
-              {NOTE_TEMPLATES.filter(t => t.category === activeCategory).map(template => (
-                <button
-                  key={template.id}
-                  onClick={() => openWithTemplate(template)}
-                  className={`text-left p-4 rounded-xl border bg-gradient-to-br ${template.color} hover:scale-[1.02] transition-all group`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <span className="text-2xl">{template.emoji}</span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-1" />
-                  </div>
-                  <p className="font-semibold text-sm mb-1">{template.name}</p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{template.desc}</p>
-                </button>
-              ))}
+          <div className="overflow-y-auto flex-1 pr-1 space-y-4">
+            {/* Пользовательские шаблоны */}
+            {userTemplates.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-2 sticky top-0 bg-background py-1">Мои шаблоны</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {userTemplates.map(tpl => (
+                    <div
+                      key={tpl.id}
+                      onClick={() => openWithUserTemplate(tpl)}
+                      className="relative p-3 rounded-xl border bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="font-medium text-sm flex items-center gap-2">
+                          <span>📄</span>
+                          <span>{tpl.name}</span>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteTemplate.mutate(tpl.id); }}
+                          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mt-1">{tpl.title}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Стандартные шаблоны */}
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2 sticky top-0 bg-background py-1">Встроенные шаблоны</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {NOTE_TEMPLATES.filter(t => t.category === activeCategory).map(template => (
+                  <button
+                    key={template.id}
+                    onClick={() => openWithTemplate(template)}
+                    className={`text-left p-4 rounded-xl border bg-gradient-to-br ${template.color} hover:scale-[1.02] transition-all group`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <span className="text-2xl">{template.emoji}</span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-1" />
+                    </div>
+                    <p className="font-semibold text-sm mb-1">{template.name}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{template.desc}</p>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -584,6 +662,14 @@ export default function Notes() {
               >
                 <Pencil className="h-3.5 w-3.5 mr-1.5" />
                 Редактировать
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={saveCurrentNoteAsTemplate}
+              >
+                <Save className="h-3.5 w-3.5 mr-1.5" />
+                Сохранить как шаблон
               </Button>
             </div>
           </div>

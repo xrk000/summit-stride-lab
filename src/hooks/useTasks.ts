@@ -55,11 +55,11 @@ export const useTasks = () => {
           task_id: data.id,
           tag_id: tagId
         }));
-        
+
         const { error: tagError } = await supabase
           .from("task_tags")
           .insert(tagRelations);
-          
+
         if (tagError) throw tagError;
       }
 
@@ -96,18 +96,18 @@ export const useTasks = () => {
       if (tagIds !== undefined) {
         // Удаляем старые связи
         await supabase.from("task_tags").delete().eq("task_id", id);
-        
+
         // Добавляем новые связи
         if (tagIds.length > 0) {
           const tagRelations = tagIds.map(tagId => ({
             task_id: id,
             tag_id: tagId
           }));
-          
+
           const { error: tagError } = await supabase
             .from("task_tags")
             .insert(tagRelations);
-            
+
           if (tagError) throw tagError;
         }
       }
@@ -162,7 +162,7 @@ export const useTasks = () => {
 
       const { data, error } = await supabase
         .from("tasks")
-        .update({ 
+        .update({
           completed: !task.completed,
           completed_at: !task.completed ? new Date().toISOString() : null
         })
@@ -191,6 +191,7 @@ export const useTasks = () => {
     tasks: tasks || [],
     isLoading,
     createTask: createTask.mutate,
+    createTaskAsync: createTask.mutateAsync,
     updateTask: updateTask.mutate,
     deleteTask: deleteTask.mutate,
     toggleTask: toggleTask.mutate,

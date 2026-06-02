@@ -8,12 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   CheckCircle2, Calendar, FileText, Target, Upload, Loader2,
-  Settings, BarChart2, User, Plug, TrendingUp, CheckCheck, Flame
+  Settings, BarChart2, User, Plug, TrendingUp, CheckCheck, Flame,
+  Tag, Pencil, Trash2, Plus, X, Check
 } from "lucide-react";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useActivityData } from "@/hooks/useActivityData";
 import { useHabits } from "@/hooks/useHabits";
+import { useTags } from "@/hooks/useTags";
 import GoogleCalendarCard from "@/components/GoogleCalendarCard";
 import VkConnect from "@/components/VkConnect";
 import { useState, useRef, useEffect } from "react";
@@ -31,8 +33,38 @@ const Profile = () => {
   const { data: monthActivity } = useActivityData(30);
   const { habits, habitEntries } = useHabits();
 
+  const { tags, createTag, updateTag, deleteTag } = useTags();
   const [username, setUsername] = useState("");
   const [timezone, setTimezone] = useState("GMT+3");
+  const [newTagName, setNewTagName] = useState("");
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [editingTagName, setEditingTagName] = useState("");
+  const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
+
+  const handleCreateTag = () => {
+    if (newTagName.trim()) {
+      createTag(newTagName.trim());
+      setNewTagName("");
+    }
+  };
+
+  const handleStartEdit = (id: string, name: string) => {
+    setEditingTagId(id);
+    setEditingTagName(name);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingTagId && editingTagName.trim()) {
+      updateTag({ id: editingTagId, name: editingTagName.trim() });
+    }
+    setEditingTagId(null);
+    setEditingTagName("");
+  };
+
+  const handleDeleteTag = (id: string) => {
+    deleteTag(id);
+    setDeletingTagId(null);
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -181,6 +213,9 @@ const Profile = () => {
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-1.5 px-4 py-2">
               <Settings className="h-4 w-4" />Настройки
+            </TabsTrigger>
+            <TabsTrigger value="tags" className="gap-1.5 px-4 py-2">
+              <Tag className="h-4 w-4" />Теги
             </TabsTrigger>
           </TabsList>
 
@@ -462,6 +497,142 @@ const Profile = () => {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* ── Теги ── */}
+          <TabsContent value="tags" className="space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Tag className="h-5 w-5 text-primary" />
+                  Управление тегами
+                </CardTitle>
+                <CardDescription>
+                  Теги используются в задачах, заметках, привычках и проектах. Изменения применяются глобально.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Создание нового тега */}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Название нового тега..."
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleCreateTag(); } }}
+                    className="flex-1"
+                  />
+                  <Button onClick={handleCreateTag} disabled={!newTagName.trim()} className="shrink-0">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Создать
+                  </Button>
+                </div>
+
+                {/* Список тегов */}
+                {tags.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <Tag className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">Тегов пока нет</p>
+                    <p className="text-xs mt-1">Создайте первый тег выше</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {tags.map((tag) => (
+                      <div
+                        key={tag.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/40 transition-colors group"
+                      >
+                        <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
+                        {editingTagId === tag.id ? (
+                          <Input
+                            value={editingTagName}
+                            onChange={(e) => setEditingTagName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleSaveEdit();
+                              if (e.key === "Escape") { setEditingTagId(null); setEditingTagName(""); }
+                            }}
+                            className="flex-1 h-7 text-sm"
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="flex-1 text-sm font-medium">{tag.name}</span>
+                        )}
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          {editingTagId === tag.id ? (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-green-500 hover:text-green-600 hover:bg-green-500/10"
+                                onClick={handleSaveEdit}
+                                title="Сохранить"
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => { setEditingTagId(null); setEditingTagName(""); }}
+                                title="Отмена"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => handleStartEdit(tag.id, tag.name)}
+                                title="Переименовать"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              {deletingTagId === tag.id ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-muted-foreground">Удалить?</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    onClick={() => handleDeleteTag(tag.id)}
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => setDeletingTagId(null)}
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => setDeletingTagId(tag.id)}
+                                  title="Удалить тег"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-xs text-muted-foreground pt-2 border-t">
+                  Всего тегов: {tags.length}. Удаление тега убирает его из всех связанных задач, заметок и привычек.
+                </p>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
