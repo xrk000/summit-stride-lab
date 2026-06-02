@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, TrendingUp, CheckCircle2, Circle, Pencil, Trash2, Search, Calendar } from "lucide-react";
-import { useHabits } from "@/hooks/useHabits";
+import { useHabits, type Habit } from "@/hooks/useHabits";
 import { useTags } from "@/hooks/useTags";
 import { useHabitTags } from "@/hooks/useHabitTags";
 import { useAllHabitTags } from "@/hooks/useAllHabitTags";
@@ -18,6 +18,7 @@ import { TagInput } from "@/components/TagInput";
 import { cn } from "@/lib/utils";
 import { format, startOfWeek, addDays, subWeeks, isToday, isFuture, startOfDay, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
+
 
 export default function Habits() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -34,7 +35,7 @@ export default function Habits() {
   const handleAddHabit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     const habitData = {
       name: formData.get("name") as string,
       description: formData.get("description") as string,
@@ -43,31 +44,31 @@ export default function Habits() {
 
     if (editingHabit) {
       updateHabit({ id: editingHabit.id, ...habitData });
-      
+
       // Обновляем теги
       const currentTags = habitTagsMap?.get(editingHabit.id) || [];
       const currentTagIds = currentTags.map(t => t.id);
       const newTagIds = selectedTags.map(t => t.id);
-      
+
       // Удаляем теги, которые были сняты
       const tagsToRemove = currentTagIds.filter(id => !newTagIds.includes(id));
       tagsToRemove.forEach(tagId => {
         removeTagFromEntity({ entityType: 'habit', entityId: editingHabit.id, tagId });
       });
-      
+
       // Добавляем новые теги
       const tagsToAdd = newTagIds.filter(id => !currentTagIds.includes(id));
       tagsToAdd.forEach(tagId => {
         addTagToEntity({ entityType: 'habit', entityId: editingHabit.id, tagId });
       });
-      
+
       setEditingHabit(null);
     } else {
       // Создаем привычку с тегами
       const tagIds = selectedTags.map(t => t.id);
       createHabit({ ...habitData, tagIds });
     }
-    
+
     setSelectedTags([]);
     setIsDialogOpen(false);
     e.currentTarget.reset();
@@ -101,16 +102,16 @@ export default function Habits() {
 
   const shouldShowHabitForDate = (habit: any, date: Date) => {
     if (!habit.frequency || habit.frequency === 'daily') return true;
-    
+
     const habitCreatedAt = parseISO(habit.created_at);
     const daysDiff = differenceInDays(startOfDay(date), startOfDay(habitCreatedAt));
-    
+
     if (habit.frequency === 'every_2_days') {
       return daysDiff % 2 === 0;
     } else if (habit.frequency === 'every_3_days') {
       return daysDiff % 3 === 0;
     }
-    
+
     return true;
   };
 
@@ -126,52 +127,54 @@ export default function Habits() {
     const entries = habitEntries
       .filter(e => e.habit_id === habitId && e.completed)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
+
     let streak = 0;
     let currentStreakDate = new Date();
-    
+
     for (const entry of entries) {
       const entryDate = new Date(entry.date);
       const diffDays = Math.floor((currentStreakDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
-      
+
       if (diffDays === streak) {
         streak++;
       } else {
         break;
       }
     }
-    
+
     return streak;
   };
 
-  const getWeekProgress = (habitId: string) => {
+  const getWeekProgress = (habit: Habit) => {
     const weekDates = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
-    const completed = weekDates.filter(date => isHabitCompleted(habitId, date)).length;
-    return (completed / 7) * 100;
+    const scheduledDays = weekDates.filter(date => shouldShowHabitForDate(habit, date));
+    if (scheduledDays.length === 0) return 0;
+    const completedDays = scheduledDays.filter(date => isHabitCompleted(habit.id, date));
+    return (completedDays.length / scheduledDays.length) * 100;
   };
 
   const filteredHabits = habits.filter(habit => {
     const searchLower = searchQuery.toLowerCase();
     const habitTags = habitTagsMap?.get(habit.id) || [];
-    
+
     // Поиск по названию
     const matchesName = habit.name.toLowerCase().includes(searchLower);
-    
+
     // Поиск по описанию
     const matchesDescription = habit.description && habit.description.toLowerCase().includes(searchLower);
-    
+
     // Поиск по тегам (с # или без)
     const searchTag = searchQuery.startsWith('#') ? searchLower.slice(1) : searchLower;
     const matchesTags = habitTags.some(tag => tag.name.toLowerCase().includes(searchTag));
-    
+
     return matchesName || matchesDescription || matchesTags;
   });
 
   const stats = {
     total: habits.length,
     completedToday: habits.filter(h => isHabitCompleted(h.id, new Date())).length,
-    averageProgress: habits.length > 0 
-      ? habits.reduce((sum, h) => sum + getWeekProgress(h.id), 0) / habits.length 
+    averageProgress: habits.length > 0
+      ? habits.reduce((sum, h) => sum + getWeekProgress(h), 0) / habits.length
       : 0,
   };
 
@@ -337,9 +340,9 @@ export default function Habits() {
       <div className="space-y-4">
         {filteredHabits.map((habit) => {
           const streak = getHabitStreak(habit.id);
-          const weekProgress = getWeekProgress(habit.id);
+          const weekProgress = getWeekProgress(habit);  // передаём habit, а не habit.id
           const habitTags = habitTagsMap?.get(habit.id) || [];
-          
+
           return (
             <Card key={habit.id} className="shadow-elegant">
               <CardHeader>
@@ -407,7 +410,7 @@ export default function Habits() {
                     const completed = isHabitCompleted(habit.id, date);
                     const today = isToday(date);
                     const isFutureDate = isFuture(startOfDay(date));
-                    
+
                     return (
                       <button
                         key={index}
@@ -415,11 +418,11 @@ export default function Habits() {
                         disabled={isFutureDate || !shouldShow}
                         className={cn(
                           "aspect-square rounded-lg border-2 flex flex-col items-center justify-center transition-all",
-                          shouldShow && completed 
-                            ? "bg-success/20 border-success" 
+                          shouldShow && completed
+                            ? "bg-success/20 border-success"
                             : shouldShow
-                            ? "border-border hover:border-primary"
-                            : "border-border/30 bg-muted/30",
+                              ? "border-border hover:border-primary"
+                              : "border-border/30 bg-muted/30",
                           today && shouldShow && "ring-2 ring-primary ring-offset-2",
                           (isFutureDate || !shouldShow) && "opacity-40 cursor-not-allowed hover:border-border"
                         )}

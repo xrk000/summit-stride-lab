@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, ChevronRight, Pencil, Trash2, Filter, X } from "lucide-react";
+import { Plus, Search, ChevronRight, Pencil, Trash2, Filter, X, Tag } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -29,7 +29,7 @@ export default function Tasks() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [filterDate, setFilterDate] = useState<Date | undefined>();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  
+
   const { tasks, isLoading, createTask, updateTask, deleteTask, toggleTask } = useTasks();
   const { data: editingTaskTags } = useTaskTags(editingTask?.id || null);
   const { data: taskTagsMap } = useAllTaskTags();
@@ -46,7 +46,7 @@ export default function Tasks() {
   const handleAddTask = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    
+
     if (editingTask) {
       updateTask({
         id: editingTask.id,
@@ -78,6 +78,12 @@ export default function Tasks() {
     setIsDialogOpen(true);
   };
 
+  const handleRemoveTagFromTask = (taskId: string, tagId: string) => {
+    const currentTags = taskTagsMap?.get(taskId) || [];
+    const newTagIds = currentTags.filter(t => t.id !== tagId).map(t => t.id);
+    updateTask({ id: taskId, tagIds: newTagIds });
+  };
+
   const handleDeleteTask = (taskId: string) => {
     setDeletingTaskId(taskId);
   };
@@ -90,23 +96,23 @@ export default function Tasks() {
   };
 
   const filteredTasks = tasks.filter(task => {
-    const matchesFilter = 
-      filter === "all" || 
+    const matchesFilter =
+      filter === "all" ||
       (filter === "completed" && task.completed) ||
       (filter === "active" && !task.completed);
     const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    
+
     // Поиск по тегам
     let matchesTags = false;
     if (taskTagsMap && searchQuery) {
       const taskTags = taskTagsMap.get(task.id) || [];
-      matchesTags = taskTags.some(tag => 
+      matchesTags = taskTags.some(tag =>
         tag.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
-    const matchesDate = !filterDate || (task.due_date && 
+
+    const matchesDate = !filterDate || (task.due_date &&
       format(parseISO(task.due_date), "yyyy-MM-dd") === format(filterDate, "yyyy-MM-dd"));
     return matchesFilter && (matchesSearch || matchesTags) && matchesDate;
   });
@@ -146,11 +152,11 @@ export default function Tasks() {
             <form onSubmit={handleAddTask} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="title">Название</Label>
-                <Input 
-                  id="title" 
-                  name="title" 
+                <Input
+                  id="title"
+                  name="title"
                   defaultValue={editingTask?.title}
-                  required 
+                  required
                 />
               </div>
               <div className="space-y-2">
@@ -168,22 +174,22 @@ export default function Tasks() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="deadline">Дедлайн</Label>
-                <Input 
-                  id="deadline" 
-                  name="deadline" 
-                  type="date" 
+                <Input
+                  id="deadline"
+                  name="deadline"
+                  type="date"
                   defaultValue={editingTask?.due_date || ""}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description">Описание</Label>
-                <Textarea 
-                  id="description" 
-                  name="description" 
+                <Textarea
+                  id="description"
+                  name="description"
                   defaultValue={editingTask?.description || ""}
                 />
               </div>
-              <TaskTagSelector 
+              <TaskTagSelector
                 selectedTagIds={selectedTagIds}
                 onTagsChange={setSelectedTagIds}
               />
@@ -276,18 +282,18 @@ export default function Tasks() {
               task.completed && "opacity-60"
             )}>
               <CardContent className="p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-4 flex-1">
+                <div className="flex items-start justify-between gap-4 min-w-0">
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
                     <input
                       type="checkbox"
                       checked={task.completed || false}
                       onChange={() => toggleTask(task.id)}
-                      className="mt-1 h-5 w-5 rounded border-border cursor-pointer"
+                      className="mt-1 h-5 w-5 shrink-0 rounded border-border cursor-pointer"
                     />
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h3 className={cn(
-                          "font-semibold text-lg",
+                          "font-semibold text-lg break-words min-w-0",
                           task.completed && "line-through text-muted-foreground"
                         )}>
                           {task.title}
@@ -298,16 +304,17 @@ export default function Tasks() {
                               task.priority === "high"
                                 ? "destructive"
                                 : task.priority === "medium"
-                                ? "default"
-                                : "secondary"
+                                  ? "default"
+                                  : "secondary"
                             }
+                            className="shrink-0"
                           >
                             {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
                           </Badge>
                         )}
                       </div>
                       {task.description && (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground break-words whitespace-pre-wrap overflow-hidden">
                           {task.description}
                         </p>
                       )}
@@ -319,15 +326,30 @@ export default function Tasks() {
                       {taskTagsMap?.get(task.id) && taskTagsMap.get(task.id)!.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {taskTagsMap.get(task.id)!.map(tag => (
-                            <Badge key={tag.id} variant="outline" className="text-xs">
-                              {tag.name}
+                            <Badge
+                              key={tag.id}
+                              variant="outline"
+                              className="text-xs gap-1 pr-1 group"
+                            >
+                              <Tag className="h-3 w-3 shrink-0" />
+                              <span>{tag.name}</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveTagFromTask(task.id, tag.id);
+                                }}
+                                className="ml-0.5 rounded-full hover:bg-destructive/20 p-0.5 transition-colors opacity-0 group-hover:opacity-100"
+                                title="Удалить тег"
+                              >
+                                <X className="h-2.5 w-2.5 text-muted-foreground hover:text-destructive" />
+                              </button>
                             </Badge>
                           ))}
                         </div>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Button
                       variant="ghost"
                       size="icon"
