@@ -20,6 +20,7 @@ import { TaskAttachments } from "@/components/TaskAttachments";
 import { useAttachments, Attachment } from "@/hooks/useAttachments";
 import { format, parseISO } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useLocation, useNavigate } from "react-router-dom";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} Б`;
@@ -110,6 +111,9 @@ function AttachmentViewList({ taskId }: { taskId: string }) {
 }
 
 export default function Tasks() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -125,6 +129,17 @@ export default function Tasks() {
   const { uploadAttachment } = useAttachments();
   const { data: editingTaskTags } = useTaskTags(editingTask?.id || null);
   const { data: taskTagsMap } = useAllTaskTags();
+
+  // Открываем задачу, если передана через state (например, из проекта)
+  useEffect(() => {
+    const state = location.state as { selectedTaskId?: string };
+    if (state?.selectedTaskId) {
+      const task = tasks.find(t => t.id === state.selectedTaskId);
+      if (task) setSelectedTask(task);
+      // Очищаем state, чтобы диалог не открывался снова после закрытия
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, tasks, navigate, location.pathname]);
 
   useEffect(() => {
     if (editingTask && editingTaskTags) {
