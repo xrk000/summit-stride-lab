@@ -251,62 +251,6 @@ export default function Calendar() {
       </div>
 
       {/* ═══════════════════════════════════════════
-          ИНТЕГРАЦИИ
-      ═══════════════════════════════════════════ */}
-      <div className="space-y-3">
-        {/* Google Calendar */}
-        <div className={cn(
-          "flex items-center justify-between p-4 rounded-xl border transition-all",
-          isConnected ? "border-blue-500/30 bg-blue-500/5" : "border-border/60 bg-muted/20 border-dashed"
-        )}>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm border border-border flex-shrink-0">
-              <GoogleIcon />
-            </div>
-            <div>
-              <p className="font-medium text-sm flex items-center gap-2">
-                Google Calendar
-                {isConnected && <span className="inline-block w-2 h-2 rounded-full bg-green-500" />}
-              </p>
-              {isConnected && integration ? (
-                <p className="text-xs text-muted-foreground">
-                  {integration.last_sync_at
-                    ? `Синхронизировано: ${format(parseISO(integration.last_sync_at), "d MMM, HH:mm", { locale: ru })}`
-                    : "Ещё не синхронизировалось"}
-                  {!integration.has_refresh_token && <span className="ml-2 text-yellow-500">· Требуется переподключение</span>}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">Подключите, чтобы события из Google появились здесь</p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {isConnected ? (
-              <>
-                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 gap-1.5 py-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />Подключено
-                </Badge>
-                <Button variant="outline" size="sm" onClick={() => sync()} disabled={isSyncing}>
-                  <RefreshCw className={cn("h-4 w-4 mr-1.5", isSyncing && "animate-spin")} />
-                  {isSyncing ? "Синхронизация..." : "Обновить"}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => disconnect()} disabled={isDisconnecting} className="text-muted-foreground hover:text-destructive">
-                  <Unplug className="h-4 w-4 mr-1.5" />Отключить
-                </Button>
-              </>
-            ) : (
-              <Button size="sm" variant="outline" onClick={connect} disabled={isConnecting} className="border-blue-500/50 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10">
-                <GoogleIcon /><span className="ml-2">{isConnecting ? "Подключение..." : "Подключить"}</span>
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Yandex Calendar */}
-        <YandexCalendarPanel />
-      </div>
-
-      {/* ═══════════════════════════════════════════
           ПОИСК + ФИЛЬТРЫ
       ═══════════════════════════════════════════ */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -575,6 +519,59 @@ export default function Calendar() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════
+          ИНТЕГРАЦИИ
+      ═══════════════════════════════════════════ */}
+      <div className="space-y-3">
+        <div className={cn(
+          "flex items-center justify-between p-4 rounded-xl border transition-all",
+          isConnected ? "border-blue-500/30 bg-blue-500/5" : "border-border/60 bg-muted/20 border-dashed"
+        )}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm border border-border flex-shrink-0">
+              <GoogleIcon />
+            </div>
+            <div>
+              <p className="font-medium text-sm flex items-center gap-2">
+                Google Calendar
+                {isConnected && <span className="inline-block w-2 h-2 rounded-full bg-green-500" />}
+              </p>
+              {isConnected && integration ? (
+                <p className="text-xs text-muted-foreground">
+                  {integration.last_sync_at
+                    ? `Синхронизировано: ${format(parseISO(integration.last_sync_at), "d MMM, HH:mm", { locale: ru })}`
+                    : "Ещё не синхронизировалось"}
+                  {!integration.has_refresh_token && <span className="ml-2 text-yellow-500">· Требуется переподключение</span>}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Подключите, чтобы события из Google появились здесь</p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isConnected ? (
+              <>
+                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 gap-1.5 py-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />Подключено
+                </Badge>
+                <Button variant="outline" size="sm" onClick={() => sync()} disabled={isSyncing}>
+                  <RefreshCw className={cn("h-4 w-4 mr-1.5", isSyncing && "animate-spin")} />
+                  {isSyncing ? "Синхронизация..." : "Обновить"}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => disconnect()} disabled={isDisconnecting} className="text-muted-foreground hover:text-destructive">
+                  <Unplug className="h-4 w-4 mr-1.5" />Отключить
+                </Button>
+              </>
+            ) : (
+              <Button size="sm" variant="outline" onClick={connect} disabled={isConnecting} className="border-blue-500/50 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10">
+                <GoogleIcon /><span className="ml-2">{isConnecting ? "Подключение..." : "Подключить"}</span>
+              </Button>
+            )}
+          </div>
+        </div>
+        <YandexCalendarPanel />
       </div>
 
       {/* Диалог создания / редактирования */}

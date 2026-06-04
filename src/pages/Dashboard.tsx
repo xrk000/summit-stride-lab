@@ -78,6 +78,8 @@ export default function Dashboard() {
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [selectedNote, setSelectedNote] = useState<any>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
 
@@ -254,7 +256,10 @@ export default function Dashboard() {
           <CardContent>
             {focusTask ? (
               <div className="space-y-4">
-                <div className="p-5 rounded-xl bg-primary/10 border border-primary/20 space-y-3">
+                <div
+                  className="p-5 rounded-xl bg-primary/10 border border-primary/20 space-y-3 cursor-pointer hover:bg-primary/15 transition-colors"
+                  onClick={() => setSelectedTask(focusTask)}
+                >
                   <Badge variant={focusTask.priority === 'high' ? 'destructive' : focusTask.priority === 'medium' ? 'default' : 'secondary'} className="text-xs">
                     {focusTask.priority === 'high' ? '🔴 Высокий приоритет' : focusTask.priority === 'medium' ? '🟡 Средний' : '🟢 Низкий'}
                   </Badge>
@@ -364,10 +369,11 @@ export default function Dashboard() {
               const overdue = due && isPast(due) && !isToday(due);
               return (
                 <div key={task.id} className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border text-sm",
+                  "flex items-center gap-3 p-3 rounded-lg border text-sm cursor-pointer hover:opacity-80 transition-opacity",
                   overdue ? "bg-red-500/5 border-red-500/20" : "bg-orange-500/5 border-orange-500/20"
-                )}>
-                  <input type="checkbox" checked={task.completed} onChange={() => toggleTask(task.id)}
+                )} onClick={() => setSelectedTask(task)}>
+                  <input type="checkbox" checked={task.completed}
+                    onChange={(e) => { e.stopPropagation(); toggleTask(task.id); }}
                     className="h-4 w-4 flex-shrink-0 cursor-pointer" />
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate text-sm">{task.title}</p>
@@ -411,8 +417,11 @@ export default function Dashboard() {
                 <p className="text-sm text-muted-foreground">Нет задач на сегодня</p>
               </div>
             ) : todayTasks.slice(0, 5).map(task => (
-              <div key={task.id} className={cn("flex items-center gap-2 p-2.5 rounded-lg bg-muted/40 hover:bg-muted transition-colors", task.completed && "opacity-50")}>
-                <input type="checkbox" checked={task.completed || false} onChange={() => toggleTask(task.id)} className="h-4 w-4 cursor-pointer flex-shrink-0" />
+              <div key={task.id} className={cn("flex items-center gap-2 p-2.5 rounded-lg bg-muted/40 hover:bg-muted transition-colors cursor-pointer", task.completed && "opacity-50")}
+                onClick={() => setSelectedTask(task)}>
+                <input type="checkbox" checked={task.completed || false}
+                  onChange={(e) => { e.stopPropagation(); toggleTask(task.id); }}
+                  className="h-4 w-4 cursor-pointer flex-shrink-0" />
                 <p className={cn("text-sm flex-1 truncate", task.completed && "line-through text-muted-foreground")}>{task.title}</p>
                 <Badge variant={task.priority === "high" ? "destructive" : task.priority === "medium" ? "default" : "secondary"} className="text-xs flex-shrink-0 px-1.5">
                   {task.priority === "high" ? "!" : task.priority === "medium" ? "•" : "○"}
@@ -441,7 +450,7 @@ export default function Dashboard() {
               const todayFlag = isToday(d);
               const sourceBadge = (event as any).source;
               return (
-                <div key={event.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/40 hover:bg-muted transition-colors">
+                <div key={event.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/40 hover:bg-muted transition-colors cursor-pointer" onClick={() => setSelectedEvent(event)}>
                   <div className={cn("w-9 h-9 rounded-lg flex flex-col items-center justify-center flex-shrink-0 text-center", todayFlag ? "bg-primary text-primary-foreground" : "bg-muted")}>
                     <span className="text-xs font-bold leading-none">{format(d, 'd')}</span>
                     <span className="text-xs leading-none opacity-70">{format(d, 'MMM', { locale: ru })}</span>
@@ -514,7 +523,7 @@ export default function Dashboard() {
                 const fl = note.content?.split('\n')[0] || "";
                 const emoji = fl.match(/^\p{Emoji}/u)?.[0] || "📝";
                 return (
-                  <div key={note.id} className="flex items-start gap-3 p-4 rounded-xl bg-muted/40 hover:bg-muted transition-colors cursor-pointer border border-transparent hover:border-border">
+                  <div key={note.id} className="flex items-start gap-3 p-4 rounded-xl bg-muted/40 hover:bg-muted transition-colors cursor-pointer border border-transparent hover:border-border" onClick={() => setSelectedNote(note)}>
                     <span className="text-2xl flex-shrink-0">{emoji}</span>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-sm truncate">{note.title}</p>
@@ -585,6 +594,54 @@ export default function Dashboard() {
             {selectedTask?.due_date && <div><Label>Дедлайн</Label><p className="mt-1">{format(parseISO(selectedTask.due_date), "dd MMMM yyyy", { locale: ru })}</p></div>}
             <div><Label>Описание</Label><p className="mt-1 text-muted-foreground">{selectedTask?.description || "Нет описания"}</p></div>
             <div><Label>Статус</Label><p className="mt-1">{selectedTask?.completed ? "✓ Выполнена" : "В работе"}</p></div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{selectedEvent?.title}</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div>
+              <Label>Дата</Label>
+              <p className="mt-1">{selectedEvent?.date ? format(parseISO(selectedEvent.date), "dd MMMM yyyy", { locale: ru }) : "—"}</p>
+            </div>
+            {selectedEvent?.time && (
+              <div><Label>Время</Label><p className="mt-1">{selectedEvent.time}{selectedEvent.end_time ? ` — ${selectedEvent.end_time}` : ""}</p></div>
+            )}
+            {selectedEvent?.type && (
+              <div>
+                <Label>Тип</Label>
+                <p className="mt-1">{selectedEvent.type === "meeting" ? "Встреча" : selectedEvent.type === "reminder" ? "Напоминание" : "Заметка"}</p>
+              </div>
+            )}
+            {selectedEvent?.source && selectedEvent.source !== "manual" && (
+              <div><Label>Источник</Label><p className="mt-1">{selectedEvent.source === "google" ? "Google Calendar" : "Яндекс Календарь"}</p></div>
+            )}
+            {selectedEvent?.location && (
+              <div><Label>Место</Label><p className="mt-1">{selectedEvent.location}</p></div>
+            )}
+            {selectedEvent?.description && (
+              <div><Label>Описание</Label><p className="mt-1 text-muted-foreground whitespace-pre-wrap">{selectedEvent.description}</p></div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedNote} onOpenChange={() => setSelectedNote(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>{selectedNote?.title}</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm">
+            {selectedNote?.updated_at && (
+              <p className="text-xs text-muted-foreground">
+                Обновлено: {format(new Date(selectedNote.updated_at), "d MMMM yyyy, HH:mm", { locale: ru })}
+              </p>
+            )}
+            <div className="max-h-80 overflow-y-auto">
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                {selectedNote?.content || "Нет содержания"}
+              </p>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
