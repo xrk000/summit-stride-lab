@@ -7,10 +7,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, FileText, Tag, Search, Eye, Pencil, Trash2, X, Sparkles, ChevronRight, Save } from "lucide-react";
+import { Plus, FileText, Tag, Search, Eye, Pencil, Trash2, X, Sparkles, ChevronRight, Save, Paperclip } from "lucide-react";
 import { useNotes } from "@/hooks/useNotes";
 import { useTags } from "@/hooks/useTags";
 import { useNoteTemplates, type NoteTemplate } from "@/hooks/useNoteTemplates";
+import { useAttachments } from "@/hooks/useAttachments";
 import { TagInput } from "@/components/TagInput";
 import { FileUpload } from "@/components/FileUpload";
 
@@ -65,7 +66,6 @@ const NOTE_TEMPLATES = [
       content: `📊 ЕЖЕНЕДЕЛЬНЫЙ ОТЧЁТ\nПериод: \n\n✅ ВЫПОЛНЕНО\n— \n— \n— \n\n🔄 В ПРОЦЕССЕ\n— \n— \n\n📅 ПЛАН НА СЛЕДУЮЩУЮ НЕДЕЛЮ\n— [ ] \n— [ ] \n— [ ] \n\n🚧 ПРОБЛЕМЫ И БЛОКЕРЫ\n— \n\n💡 ИДЕИ И ПРЕДЛОЖЕНИЯ\n— `
     }
   },
-
   // ── Идеи ──
   {
     id: "brainstorm", category: "ideas",
@@ -97,7 +97,6 @@ const NOTE_TEMPLATES = [
       content: `🔲 SWOT-АНАЛИЗ\nОбъект: \n\n💪 СИЛЬНЫЕ СТОРОНЫ (Strengths)\n— \n— \n— \n\n⚠️ СЛАБЫЕ СТОРОНЫ (Weaknesses)\n— \n— \n— \n\n🌱 ВОЗМОЖНОСТИ (Opportunities)\n— \n— \n— \n\n🚨 УГРОЗЫ (Threats)\n— \n— \n— \n\n📌 ВЫВОД:\n`
     }
   },
-
   // ── Учёба ──
   {
     id: "lecture", category: "study",
@@ -129,7 +128,6 @@ const NOTE_TEMPLATES = [
       content: `📕 КНИГА\nНазвание: \nАвтор: \nДата прочтения: \nОценка: ⭐⭐⭐⭐⭐\n\n🎯 ГЛАВНАЯ ИДЕЯ КНИГИ:\n\n\n💬 КЛЮЧЕВЫЕ ЦИТАТЫ:\n«»\n«»\n«»\n\n📌 ТОП ИНСАЙТОВ:\n1. \n2. \n3. \n4. \n5. \n\n🔄 ЧТО ИЗМЕНЮ В СВОЕЙ ЖИЗНИ:\n— \n— \n\n👍 КОМУ РЕКОМЕНДУЮ И ПОЧЕМУ:\n`
     }
   },
-
   // ── Личное ──
   {
     id: "journal", category: "personal",
@@ -183,7 +181,6 @@ const NOTE_TEMPLATES = [
   },
 ];
 
-// ─── Цвета акцентов для карточек ─────────────────────────────────────────────
 const ACCENT_COLORS: Record<string, string> = {
   blue: "border-l-blue-500 bg-blue-500/5",
   violet: "border-l-violet-500 bg-violet-500/5",
@@ -202,7 +199,6 @@ const ACCENT_COLORS: Record<string, string> = {
   lime: "border-l-lime-500 bg-lime-500/5",
 };
 
-// Определяем акцент заметки по первому emoji в content
 function getNoteAccent(note: any): string {
   const emojiToAccent: Record<string, string> = {
     "🗣️": "blue", "📋": "violet", "📞": "emerald", "📊": "orange",
@@ -215,8 +211,6 @@ function getNoteAccent(note: any): string {
   return emojiToAccent[firstEmoji] || "";
 }
 
-// ─── Компонент ────────────────────────────────────────────────────────────────
-
 export default function Notes() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -228,13 +222,15 @@ export default function Notes() {
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [newNoteTags, setNewNoteTags] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState("work");
+  // Pending файлы для новой заметки
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
-  const { notes, isLoading, createNote, updateNote, deleteNote } = useNotes();
+  const { notes, isLoading, createNote, createNoteAsync, updateNote, deleteNote } = useNotes();
   const { getEntityTags, addTagToEntity } = useTags();
   const { templates: userTemplates, createTemplate, deleteTemplate } = useNoteTemplates();
+  const { uploadAttachment } = useAttachments();
   const [noteTags, setNoteTags] = useState<Record<string, any[]>>({});
 
-  // Загружаем теги для всех заметок при монтировании и после изменений
   useEffect(() => {
     const loadAllTags = async () => {
       const tagsMap: Record<string, any[]> = {};
@@ -247,7 +243,6 @@ export default function Notes() {
     if (notes.length > 0) loadAllTags();
   }, [notes, getEntityTags]);
 
-  // Функция замены переменных {{date}} и {{time}}
   const replaceVars = (str: string) => {
     const now = new Date();
     const date = now.toLocaleDateString();
@@ -255,42 +250,36 @@ export default function Notes() {
     return str.replace(/\{\{date\}\}/g, date).replace(/\{\{time\}\}/g, time);
   };
 
-  // Открыть стандартный шаблон
   const openWithTemplate = (template: any) => {
-    const title = replaceVars(template.template.title);
-    const content = replaceVars(template.template.content);
     setSelectedTemplate({
       ...template,
-      template: { title, content }
+      template: {
+        title: replaceVars(template.template.title),
+        content: replaceVars(template.template.content),
+      }
     });
     setIsTemplatePickerOpen(false);
     setIsDialogOpen(true);
   };
 
-  // Открыть пользовательский шаблон
   const openWithUserTemplate = (tpl: NoteTemplate) => {
-    const title = replaceVars(tpl.title);
-    const content = tpl.content ? replaceVars(tpl.content) : "";
-    // Приводим к формату, ожидаемому формой (как у статических шаблонов)
     setSelectedTemplate({
       name: tpl.name,
       emoji: "📄",
-      template: { title, content }
+      template: {
+        title: replaceVars(tpl.title),
+        content: tpl.content ? replaceVars(tpl.content) : "",
+      }
     });
     setIsTemplatePickerOpen(false);
     setIsDialogOpen(true);
   };
 
-  // Сохранить текущую заметку (из просмотра) как шаблон
   const saveCurrentNoteAsTemplate = async () => {
     if (!selectedNote) return;
     const name = prompt("Введите название шаблона:", selectedNote.title);
     if (name) {
-      await createTemplate.mutate({
-        name,
-        title: selectedNote.title,
-        content: selectedNote.content || "",
-      });
+      await createTemplate.mutate({ name, title: selectedNote.title, content: selectedNote.content || "" });
     }
   };
 
@@ -306,16 +295,25 @@ export default function Notes() {
       updateNote({ id: editingNote.id, ...noteData });
       setEditingNote(null);
     } else {
-      const result = await new Promise((resolve) => {
-        createNote(noteData, { onSuccess: (newNote: any) => resolve(newNote) });
-      });
-      if (result && newNoteTags.length > 0) {
-        const newNote = result as any;
-        for (const tag of newNoteTags) {
-          addTagToEntity({ entityType: 'note', entityId: newNote.id, tagId: tag.id });
+      try {
+        const newNote = await createNoteAsync(noteData);
+        // Добавляем теги
+        if (newNote && newNoteTags.length > 0) {
+          for (const tag of newNoteTags) {
+            addTagToEntity({ entityType: 'note', entityId: (newNote as any).id, tagId: tag.id });
+          }
         }
+        // Загружаем pending файлы
+        if (newNote && pendingFiles.length > 0) {
+          for (const file of pendingFiles) {
+            uploadAttachment({ file, entityType: 'note', entityId: (newNote as any).id });
+          }
+        }
+      } catch {
+        return;
       }
       setNewNoteTags([]);
+      setPendingFiles([]);
     }
     setIsDialogOpen(false);
     setSelectedTemplate(null);
@@ -327,7 +325,7 @@ export default function Notes() {
       note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (note.content && note.content.toLowerCase().includes(searchQuery.toLowerCase()));
     const tags = noteTags[note.id] || [];
-    const matchesTags = tags.some(tag => tag.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesTags = tags.some((tag: any) => tag.name.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesSearch || matchesTags;
   });
 
@@ -353,17 +351,13 @@ export default function Notes() {
           <p className="text-muted-foreground mt-1">Управляйте своими идеями и информацией</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setIsTemplatePickerOpen(true)}
-            className="gap-2"
-          >
+          <Button variant="outline" onClick={() => setIsTemplatePickerOpen(true)} className="gap-2">
             <Sparkles className="h-4 w-4" />
             Шаблоны
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
-            if (!open) { setEditingNote(null); setSelectedTemplate(null); setNewNoteTags([]); }
+            if (!open) { setEditingNote(null); setSelectedTemplate(null); setNewNoteTags([]); setPendingFiles([]); }
           }}>
             <DialogTrigger asChild>
               <Button className="bg-primary gap-2">
@@ -371,7 +365,7 @@ export default function Notes() {
                 Новая заметка
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   {selectedTemplate && <span>{selectedTemplate.emoji}</span>}
@@ -414,12 +408,19 @@ export default function Notes() {
                     }}
                   />
                 </div>
-                {editingNote && (
-                  <div>
-                    <Label>Вложения</Label>
-                    <FileUpload entityType="note" entityId={editingNote.id} />
-                  </div>
-                )}
+                {/* Вложения — при создании pending-режим, при редактировании сразу грузим */}
+                <div>
+                  <Label className="flex items-center gap-1.5 mb-2">
+                    <Paperclip className="h-3.5 w-3.5" />
+                    Вложения
+                  </Label>
+                  <FileUpload
+                    entityType="note"
+                    entityId={editingNote?.id || null}
+                    pendingFiles={editingNote ? undefined : pendingFiles}
+                    onPendingFilesChange={editingNote ? undefined : setPendingFiles}
+                  />
+                </div>
                 <div className="flex justify-end gap-2 pt-2">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Отмена</Button>
                   <Button type="submit">{editingNote ? "Сохранить" : "Создать"}</Button>
@@ -550,8 +551,6 @@ export default function Notes() {
               Выбор шаблона
             </DialogTitle>
           </DialogHeader>
-
-          {/* Category tabs */}
           <div className="flex gap-2 flex-wrap">
             {TEMPLATE_CATEGORIES.map(cat => (
               <button
@@ -566,10 +565,7 @@ export default function Notes() {
               </button>
             ))}
           </div>
-
-          {/* Templates grid */}
           <div className="overflow-y-auto flex-1 pr-1 space-y-4">
-            {/* Пользовательские шаблоны */}
             {userTemplates.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground mb-2 sticky top-0 bg-background py-1">Мои шаблоны</h4>
@@ -598,8 +594,6 @@ export default function Notes() {
                 </div>
               </div>
             )}
-
-            {/* Стандартные шаблоны */}
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-2 sticky top-0 bg-background py-1">Встроенные шаблоны</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -620,7 +614,6 @@ export default function Notes() {
               </div>
             </div>
           </div>
-
           <div className="pt-2 border-t">
             <Button
               variant="ghost"
@@ -654,6 +647,20 @@ export default function Notes() {
                 ))}
               </div>
             )}
+            {/* Вложения в режиме просмотра */}
+            <div className="pt-2 border-t">
+              <Label className="flex items-center gap-1.5 mb-2">
+                <Paperclip className="h-3.5 w-3.5" />
+                Вложения
+              </Label>
+              {selectedNote && (
+                <FileUpload
+                  entityType="note"
+                  entityId={selectedNote.id}
+                  readOnly
+                />
+              )}
+            </div>
             <div className="flex gap-2 pt-2 border-t">
               <Button
                 size="sm"
@@ -663,11 +670,7 @@ export default function Notes() {
                 <Pencil className="h-3.5 w-3.5 mr-1.5" />
                 Редактировать
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={saveCurrentNoteAsTemplate}
-              >
+              <Button size="sm" variant="outline" onClick={saveCurrentNoteAsTemplate}>
                 <Save className="h-3.5 w-3.5 mr-1.5" />
                 Сохранить как шаблон
               </Button>
@@ -685,7 +688,10 @@ export default function Notes() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (deletingNoteId) { deleteNote(deletingNoteId); setDeletingNoteId(null); } }} className="bg-destructive">
+            <AlertDialogAction
+              onClick={() => { if (deletingNoteId) { deleteNote(deletingNoteId); setDeletingNoteId(null); } }}
+              className="bg-destructive"
+            >
               Удалить
             </AlertDialogAction>
           </AlertDialogFooter>

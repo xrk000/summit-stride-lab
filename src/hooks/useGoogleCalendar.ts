@@ -137,7 +137,7 @@ export const useGoogleCalendar = () => {
     setIsConnecting(true);
     sessionStorage.setItem("google_calendar_connecting", "1");
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.linkIdentity({
       provider: "google",
       options: {
         scopes: GOOGLE_CALENDAR_SCOPE,

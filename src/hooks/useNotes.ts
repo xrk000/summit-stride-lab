@@ -122,6 +122,7 @@ export const useNotes = () => {
     notes: notes || [],
     isLoading,
     createNote: createNote.mutate,
+    createNoteAsync: createNote.mutateAsync,
     updateNote: updateNote.mutate,
     deleteNote: deleteNote.mutate,
   };
