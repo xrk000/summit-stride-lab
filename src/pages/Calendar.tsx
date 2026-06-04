@@ -1,14 +1,17 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Search, X, Calendar as CalendarIcon, CheckSquare, TrendingUp, RefreshCw, Unplug, MapPin, Video, RefreshCcw } from "lucide-react";
+import {
+  ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Search, X,
+  Calendar as CalendarIcon, CheckSquare, TrendingUp, RefreshCw,
+  Unplug, MapPin, Video, RefreshCcw, Loader2, Link
+} from "lucide-react";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { useTasks } from "@/hooks/useTasks";
@@ -20,6 +23,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import { ru } from "date-fns/locale";
 import { YandexCalendarPanel } from "@/components/YandexCalendarPanel";
 import { useYandexCalendar } from "@/hooks/useYandexCalendar";
+import { cn } from "@/lib/utils";
 
 const GoogleIcon = () => (
   <svg viewBox="0 0 24 24" className="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
@@ -155,7 +159,7 @@ export default function Calendar() {
   const getEventCardClass = (event: any) => {
     if (event.source === 'google') return 'bg-blue-500/5 hover:bg-blue-500/10 border border-blue-500/20';
     if (event.source === 'yandex') return 'bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/20';
-    return 'bg-muted/50 hover:bg-muted';
+    return 'bg-muted/40 hover:bg-muted/70 border border-border/50';
   };
 
   const getEventSourceBadge = (event: any) => {
@@ -176,59 +180,85 @@ export default function Calendar() {
     );
   };
 
-  if (isLoading) return <div className="p-8"><p className="text-muted-foreground">Загрузка календаря...</p></div>;
+  // Статистика для hero
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const thisMonthEvents = events.filter(e => { try { return isSameMonth(parseISO(e.date), currentDate); } catch { return false; } }).length;
+  const todayEventCount = events.filter(e => e.date === todayStr).length;
+  const connectedCount = (isConnected ? 1 : 0) + (isYandexConnected ? 1 : 0);
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Загрузка календаря...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground">Календарь</h1>
-          <p className="text-muted-foreground mt-1">{format(currentDate, "LLLL yyyy", { locale: ru })}</p>
+    <div className="p-6 space-y-6">
+
+      {/* ═══════════════════════════════════════════
+          HERO
+      ═══════════════════════════════════════════ */}
+      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 via-primary/80 to-slate-900 p-8 min-h-[160px]">
+        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
+
+        <div className="relative flex flex-col lg:flex-row lg:items-center gap-8">
+          {/* Заголовок */}
+          <div className="flex-1 min-w-0">
+            <p className="text-white/60 text-sm mb-2 flex items-center gap-1.5">
+              <CalendarIcon className="h-4 w-4" />
+              Расписание и события
+            </p>
+            <h1 className="text-4xl lg:text-5xl font-bold text-white">Календарь</h1>
+            <p className="text-white/40 text-xs mt-2">
+              {format(currentDate, "LLLL yyyy", { locale: ru })}
+            </p>
+          </div>
+
+          {/* Статистика */}
+          <div className="hidden lg:flex items-center gap-8 flex-shrink-0">
+            {[
+              { label: "В этом месяце", value: thisMonthEvents, icon: CalendarIcon, color: "text-blue-400" },
+              { label: "Сегодня", value: todayEventCount, icon: CheckSquare, color: "text-green-400" },
+              { label: "Интеграций", value: `${connectedCount}/2`, icon: Link, color: "text-amber-400" },
+            ].map(s => (
+              <div key={s.label} className="flex items-center gap-2.5">
+                <s.icon className={cn("h-5 w-5 flex-shrink-0", s.color)} />
+                <div>
+                  <p className="text-white/40 text-xs leading-none">{s.label}</p>
+                  <p className="text-white font-bold text-2xl leading-tight">{s.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Кнопка */}
+          <div className="flex-shrink-0">
+            <button
+              onClick={() => setIsDialogOpen(true)}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl border transition-all text-sm font-medium bg-blue-500/20 hover:bg-blue-500/40 border-blue-500/30 text-blue-300"
+            >
+              <Plus className="h-4 w-4" />
+              Новое событие
+            </button>
+          </div>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingEvent(null); }}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary"><Plus className="h-4 w-4 mr-2" />Новое событие</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editingEvent ? "Редактировать событие" : "Новое событие"}</DialogTitle></DialogHeader>
-            <form onSubmit={handleAddEvent} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Название</Label>
-                <Input id="title" name="title" placeholder="Введите название события" defaultValue={editingEvent?.title} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="type">Тип</Label>
-                <Select name="type" defaultValue={editingEvent?.type || "meeting"}>
-                  <SelectTrigger><SelectValue placeholder="Выберите тип события" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="meeting">Встреча</SelectItem>
-                    <SelectItem value="reminder">Напоминание</SelectItem>
-                    <SelectItem value="note">Заметка</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="date">Дата</Label>
-                <Input id="date" name="date" type="date" defaultValue={editingEvent?.date || selectedDay} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="time">Время</Label>
-                <Input id="time" name="time" type="time" defaultValue={editingEvent?.time} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Описание</Label>
-                <Textarea id="description" name="description" defaultValue={editingEvent?.description || ""} />
-              </div>
-              <Button type="submit" className="w-full">{editingEvent ? "Сохранить" : "Создать"}</Button>
-            </form>
-          </DialogContent>
-        </Dialog>
       </div>
 
-      {/* Google Calendar Panel */}
-      <Card className={isConnected ? "border-blue-500/30 bg-blue-500/5" : "border-dashed"}>
-        <CardContent className="flex items-center justify-between p-4">
+      {/* ═══════════════════════════════════════════
+          ИНТЕГРАЦИИ
+      ═══════════════════════════════════════════ */}
+      <div className="space-y-3">
+        {/* Google Calendar */}
+        <div className={cn(
+          "flex items-center justify-between p-4 rounded-xl border transition-all",
+          isConnected ? "border-blue-500/30 bg-blue-500/5" : "border-border/60 bg-muted/20 border-dashed"
+        )}>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm border border-border flex-shrink-0">
               <GoogleIcon />
@@ -240,7 +270,9 @@ export default function Calendar() {
               </p>
               {isConnected && integration ? (
                 <p className="text-xs text-muted-foreground">
-                  {integration.last_sync_at ? `Синхронизировано: ${format(parseISO(integration.last_sync_at), "d MMM, HH:mm", { locale: ru })}` : "Ещё не синхронизировалось"}
+                  {integration.last_sync_at
+                    ? `Синхронизировано: ${format(parseISO(integration.last_sync_at), "d MMM, HH:mm", { locale: ru })}`
+                    : "Ещё не синхронизировалось"}
                   {!integration.has_refresh_token && <span className="ml-2 text-yellow-500">· Требуется переподключение</span>}
                 </p>
               ) : (
@@ -255,7 +287,7 @@ export default function Calendar() {
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />Подключено
                 </Badge>
                 <Button variant="outline" size="sm" onClick={() => sync()} disabled={isSyncing}>
-                  <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
+                  <RefreshCw className={cn("h-4 w-4 mr-1.5", isSyncing && "animate-spin")} />
                   {isSyncing ? "Синхронизация..." : "Обновить"}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => disconnect()} disabled={isDisconnecting} className="text-muted-foreground hover:text-destructive">
@@ -268,246 +300,323 @@ export default function Calendar() {
               </Button>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Yandex Calendar Panel */}
-      <YandexCalendarPanel />
+        {/* Yandex Calendar */}
+        <YandexCalendarPanel />
+      </div>
 
-      {/* Search and Filters */}
-      <div className="flex gap-4">
+      {/* ═══════════════════════════════════════════
+          ПОИСК + ФИЛЬТРЫ
+      ═══════════════════════════════════════════ */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Поиск по тегам..."
+            placeholder="Поиск по событиям, задачам, тегам..."
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setShowSearchResults(e.target.value.length > 0); }}
-            className="pl-9"
+            className="pl-9 bg-muted/40 border-border/60"
           />
+          {/* Выпадающие результаты */}
           {showSearchResults && searchResults.length > 0 && (
-            <Card className="absolute top-full mt-2 w-full max-h-96 overflow-y-auto z-50 shadow-lg">
-              <div className="p-4 space-y-2">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm">Результаты поиска ({searchResults.length})</h3>
-                  <button onClick={() => setShowSearchResults(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+            <div className="absolute top-full mt-2 w-full max-h-96 overflow-y-auto z-50 rounded-xl border border-border/60 bg-popover shadow-lg">
+              <div className="p-3 space-y-1.5">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <span className="font-semibold text-sm">Результаты ({searchResults.length})</span>
+                  <button onClick={() => setShowSearchResults(false)} className="text-muted-foreground hover:text-foreground">
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
                 {searchResults.map((result, idx) => (
-                  <button key={`${result.type}-${result.id}-${idx}`} onClick={() => handleSearchResultClick(result)} className="w-full text-left p-3 rounded-lg border hover:bg-muted transition-colors">
+                  <button
+                    key={`${result.type}-${result.id}-${idx}`}
+                    onClick={() => handleSearchResultClick(result)}
+                    className="w-full text-left p-3 rounded-xl border border-border/50 hover:bg-muted/60 transition-colors"
+                  >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          {result.type === 'event' && <CalendarIcon className="h-4 w-4 text-primary" />}
-                          {result.type === 'task' && <CheckSquare className="h-4 w-4 text-primary" />}
-                          {result.type === 'habit' && <TrendingUp className="h-4 w-4 text-primary" />}
-                          <span className="font-medium text-sm">{result.type === 'habit' ? (result as any).name : (result as any).title}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          {result.type === 'event' && <CalendarIcon className="h-3.5 w-3.5 text-primary" />}
+                          {result.type === 'task' && <CheckSquare className="h-3.5 w-3.5 text-primary" />}
+                          {result.type === 'habit' && <TrendingUp className="h-3.5 w-3.5 text-primary" />}
+                          <span className="font-medium text-sm truncate">
+                            {result.type === 'habit' ? (result as any).name : (result as any).title}
+                          </span>
                         </div>
-                        <p className="text-xs text-muted-foreground">{format(parseISO(result.date), 'dd MMMM yyyy', { locale: ru })}</p>
+                        <p className="text-xs text-muted-foreground pl-5">
+                          {format(parseISO(result.date), 'dd MMMM yyyy', { locale: ru })}
+                        </p>
                       </div>
-                      <Badge variant="outline" className="text-xs">{result.type === 'event' ? 'Событие' : result.type === 'task' ? 'Задача' : 'Привычка'}</Badge>
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {result.type === 'event' ? 'Событие' : result.type === 'task' ? 'Задача' : 'Привычка'}
+                      </Badge>
                     </div>
                   </button>
                 ))}
               </div>
-            </Card>
+            </div>
           )}
         </div>
-        <div className="flex gap-2">
-          {["all", "events", "tasks", "habits"].map(f => (
-            <Button key={f} variant={typeFilter === f ? "default" : "outline"} onClick={() => setTypeFilter(f)}>
-              {f === "all" ? "Все" : f === "events" ? "События" : f === "tasks" ? "Задачи" : "Привычки"}
-            </Button>
+
+        <div className="flex gap-1 p-1 rounded-lg bg-muted/40 border border-border/60 shrink-0">
+          {[
+            { key: "all", label: "Все" },
+            { key: "events", label: "События" },
+            { key: "tasks", label: "Задачи" },
+            { key: "habits", label: "Привычки" },
+          ].map(f => (
+            <button
+              key={f.key}
+              onClick={() => setTypeFilter(f.key)}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                typeFilter === f.key
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {f.label}
+            </button>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendar Grid */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>{format(currentDate, "LLLL yyyy", { locale: ru })}</CardTitle>
-              <div className="flex gap-2">
-                <Button variant="outline" size="icon" onClick={previousMonth}><ChevronLeft className="h-4 w-4" /></Button>
-                <Button variant="outline" size="icon" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
-              </div>
+      {/* ═══════════════════════════════════════════
+          ОСНОВНАЯ СЕТКА: КАЛЕНДАРЬ + БОКОВАЯ ПАНЕЛЬ
+      ═══════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* Сетка месяца */}
+        <div className="lg:col-span-2 rounded-xl border border-border/50 bg-card p-5">
+          {/* Навигация */}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold capitalize">
+              {format(currentDate, "LLLL yyyy", { locale: ru })}
+            </h3>
+            <div className="flex gap-1">
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={previousMonth}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextMonth}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-2 mb-2">
-              {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map(day => (
-                <div key={day} className="text-center text-sm font-medium text-muted-foreground">{day}</div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-2">
-              {daysInMonth.map(day => {
-                const dayEvents = getEventsForDay(day);
-                const dayTasks = getTasksForDay(day);
-                const dayHabits = getHabitsForDay(day);
-                const dayStr = format(day, 'yyyy-MM-dd');
-                const isSelected = dayStr === selectedDay;
-                const isToday = isSameDay(day, new Date());
-                const hasItems = dayEvents.length > 0 || dayTasks.length > 0 || dayHabits.length > 0;
+          </div>
 
-                const manualEvents = dayEvents.filter(e => !e.source || e.source === 'manual');
-                const googleEvents = dayEvents.filter(e => e.source === 'google');
-                const yandexEvents = dayEvents.filter(e => e.source === 'yandex');
+          {/* Названия дней */}
+          <div className="grid grid-cols-7 gap-2 mb-2">
+            {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map(day => (
+              <div key={day} className="text-center text-sm font-medium text-muted-foreground">{day}</div>
+            ))}
+          </div>
 
-                return (
-                  <button
-                    key={day.toString()}
-                    onClick={() => setSelectedDay(dayStr)}
-                    className={`aspect-square p-2 rounded-lg border transition-colors ${getHeatmapClass(day)} ${isSelected ? 'bg-primary text-primary-foreground border-primary' : 'hover:bg-muted'} ${isToday && !isSelected ? 'border-primary' : 'border-border'} ${!isSameMonth(day, currentDate) ? 'opacity-50' : ''}`}
-                  >
-                    <div className="text-sm font-medium">{format(day, 'd')}</div>
-                    {hasItems && (
-                      <div className="flex gap-1 mt-1 justify-center flex-wrap">
-                        {manualEvents.slice(0, 1).map((_, i) => <div key={`m-${i}`} className="w-1.5 h-1.5 rounded-full bg-blue-500" />)}
-                        {googleEvents.slice(0, 1).map((ev, i) => (
-                          <div
-                            key={`g-${i}`}
-                            className="w-1.5 h-1.5 rounded-full"
-                            style={{ backgroundColor: ev.color || '#ea4335' }}
-                          />
-                        ))}
-                        {yandexEvents.slice(0, 1).map((_, i) => <div key={`y-${i}`} className="w-1.5 h-1.5 rounded-full bg-orange-400" />)}
-                        {dayTasks.slice(0, 1).map((t, i) => (
-                          <div key={`t-${i}`} className={`w-1.5 h-1.5 rounded-full ${t.priority === 'high' ? 'bg-red-500' : t.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'}`} />
-                        ))}
-                        {dayHabits.slice(0, 1).map((_, i) => <div key={`h-${i}`} className="w-1.5 h-1.5 rounded-full bg-purple-500" />)}
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+          {/* Дни */}
+          <div className="grid grid-cols-7 gap-2">
+            {daysInMonth.map(day => {
+              const dayEvents = getEventsForDay(day);
+              const dayTasks = getTasksForDay(day);
+              const dayHabits = getHabitsForDay(day);
+              const dayStr = format(day, 'yyyy-MM-dd');
+              const isSelected = dayStr === selectedDay;
+              const isToday = isSameDay(day, new Date());
+              const hasItems = dayEvents.length > 0 || dayTasks.length > 0 || dayHabits.length > 0;
+              const manualEvents = dayEvents.filter(e => !e.source || e.source === 'manual');
+              const googleEvents = dayEvents.filter(e => e.source === 'google');
+              const yandexEvents = dayEvents.filter(e => e.source === 'yandex');
 
-            {/* Legend */}
-            <div className="flex items-center gap-4 mt-4 pt-3 border-t border-border/50 flex-wrap">
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-2 h-2 rounded-full bg-blue-500" />Событие</span>
-              {isConnected && <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-2 h-2 rounded-full bg-red-400" />Google</span>}
-              {isYandexConnected && <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-2 h-2 rounded-full bg-orange-400" />Яндекс</span>}
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-2 h-2 rounded-full bg-yellow-500" />Задача</span>
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-2 h-2 rounded-full bg-purple-500" />Привычка</span>
-            </div>
-          </CardContent>
-        </Card>
+              return (
+                <button
+                  key={day.toString()}
+                  onClick={() => setSelectedDay(dayStr)}
+                  className={cn(
+                    "aspect-square p-2 rounded-lg border transition-colors",
+                    getHeatmapClass(day),
+                    isSelected
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : isToday
+                        ? "border-primary hover:bg-muted"
+                        : "border-border hover:bg-muted",
+                    !isSameMonth(day, currentDate) && "opacity-50"
+                  )}
+                >
+                  <div className="text-sm font-medium">{format(day, 'd')}</div>
+                  {hasItems && (
+                    <div className="flex gap-1 mt-1 justify-center flex-wrap">
+                      {manualEvents.slice(0, 1).map((_, i) => <div key={`m-${i}`} className="w-1.5 h-1.5 rounded-full bg-blue-500" />)}
+                      {googleEvents.slice(0, 1).map((ev, i) => (
+                        <div key={`g-${i}`} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: ev.color || '#ea4335' }} />
+                      ))}
+                      {yandexEvents.slice(0, 1).map((_, i) => <div key={`y-${i}`} className="w-1.5 h-1.5 rounded-full bg-orange-400" />)}
+                      {dayTasks.slice(0, 1).map((t, i) => (
+                        <div key={`t-${i}`} className={cn("w-1.5 h-1.5 rounded-full", t.priority === 'high' ? 'bg-red-500' : t.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500')} />
+                      ))}
+                      {dayHabits.slice(0, 1).map((_, i) => <div key={`h-${i}`} className="w-1.5 h-1.5 rounded-full bg-purple-500" />)}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-        {/* Events List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{format(parseISO(selectedDay), "d MMMM", { locale: ru })}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {selectedDayEvents.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-muted-foreground">События</h3>
-                {selectedDayEvents.map(event => (
-                  <div
-                    key={event.id}
-                    className={`p-3 rounded-lg transition-colors cursor-pointer ${getEventCardClass(event)}`}
-                    style={event.color ? { borderLeftColor: event.color, borderLeftWidth: '3px' } : {}}
-                    onClick={() => setViewingItem({ type: 'event', data: event })}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        {/* Время + бейдж источника */}
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          {event.time && (
-                            <span className="text-xs text-muted-foreground font-medium">
-                              {event.time}{event.end_time ? ` — ${event.end_time}` : ''}
-                            </span>
-                          )}
-                          {getEventSourceBadge(event)}
-                          {event.is_recurring && (
-                            <span title="Повторяющееся событие">
-                              <RefreshCcw className="h-3 w-3 text-muted-foreground" />
-                            </span>
-                          )}
-                        </div>
+          {/* Легенда */}
+          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-border/40 flex-wrap">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-2 h-2 rounded-full bg-blue-500" />Событие</span>
+            {isConnected && <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-2 h-2 rounded-full bg-red-400" />Google</span>}
+            {isYandexConnected && <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-2 h-2 rounded-full bg-orange-400" />Яндекс</span>}
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-2 h-2 rounded-full bg-yellow-500" />Задача</span>
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><span className="w-2 h-2 rounded-full bg-purple-500" />Привычка</span>
+          </div>
+        </div>
 
-                        {/* Название */}
-                        <p className="font-medium text-sm truncate">{event.title}</p>
+        {/* Боковая панель: события дня */}
+        <div className="rounded-xl border border-border/50 bg-card p-5 space-y-4">
+          <h3 className="font-semibold text-base">
+            {format(parseISO(selectedDay), "d MMMM", { locale: ru })}
+          </h3>
 
-                        {/* Место */}
-                        {event.location && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
-                            <MapPin className="h-3 w-3 flex-shrink-0" />
-                            {event.location}
-                          </p>
+          {selectedDayEvents.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">События</p>
+              {selectedDayEvents.map(event => (
+                <div
+                  key={event.id}
+                  className={cn("p-3 rounded-xl transition-colors cursor-pointer", getEventCardClass(event))}
+                  style={event.color ? { borderLeftColor: event.color, borderLeftWidth: '3px' } : {}}
+                  onClick={() => setViewingItem({ type: 'event', data: event })}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        {event.time && (
+                          <span className="text-xs text-muted-foreground font-medium">
+                            {event.time}{event.end_time ? ` — ${event.end_time}` : ''}
+                          </span>
                         )}
-
-                        {/* Описание */}
-                        {event.description && (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{event.description}</p>
-                        )}
-
-                        {/* Meet ссылка */}
-                        {event.meet_link && (
-                          <a
-                            href={event.meet_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            className="text-xs text-blue-500 hover:text-blue-600 hover:underline flex items-center gap-1 mt-1"
-                          >
-                            <Video className="h-3 w-3" />
-                            Подключиться к Meet
-                          </a>
+                        {getEventSourceBadge(event)}
+                        {event.is_recurring && (
+                          <span title="Повторяющееся"><RefreshCcw className="h-3 w-3 text-muted-foreground" /></span>
                         )}
                       </div>
-
-                      {/* Кнопки редактирования (только для своих событий) */}
-                      {!isExternalEvent(event) && (
-                        <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" onClick={() => handleEditEvent(event)}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteEvent(event.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        </div>
+                      <p className="font-medium text-sm truncate">{event.title}</p>
+                      {event.location && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
+                          <MapPin className="h-3 w-3 flex-shrink-0" />{event.location}
+                        </p>
+                      )}
+                      {event.description && (
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{event.description}</p>
+                      )}
+                      {event.meet_link && (
+                        <a href={event.meet_link} target="_blank" rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="text-xs text-blue-500 hover:text-blue-600 hover:underline flex items-center gap-1 mt-1">
+                          <Video className="h-3 w-3" />Подключиться к Meet
+                        </a>
                       )}
                     </div>
+                    {!isExternalEvent(event) && (
+                      <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditEvent(event)}>
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteEvent(event.id)}>
+                          <Trash2 className="h-3 w-3 text-destructive" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
+          )}
 
-            {selectedDayTasks.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-muted-foreground">Задачи с дедлайном</h3>
-                {selectedDayTasks.map(task => (
-                  <div key={task.id} className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer" onClick={() => setViewingItem({ type: 'task', data: task })}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant={task.priority === 'high' ? 'destructive' : task.priority === 'medium' ? 'default' : 'secondary'}>
-                        {task.priority === 'high' ? 'Высокий' : task.priority === 'medium' ? 'Средний' : 'Низкий'}
-                      </Badge>
-                      {task.completed && <Badge variant="outline" className="bg-green-500/10 text-green-500">Выполнено</Badge>}
-                    </div>
-                    <p className="font-medium">{task.title}</p>
-                    {task.description && <p className="text-sm text-muted-foreground mt-1">{task.description}</p>}
+          {selectedDayTasks.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Задачи с дедлайном</p>
+              {selectedDayTasks.map(task => (
+                <div key={task.id}
+                  className="p-3 rounded-xl bg-muted/40 hover:bg-muted/70 border border-border/50 transition-colors cursor-pointer"
+                  onClick={() => setViewingItem({ type: 'task', data: task })}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant={task.priority === 'high' ? 'destructive' : task.priority === 'medium' ? 'default' : 'secondary'} className="text-xs">
+                      {task.priority === 'high' ? 'Высокий' : task.priority === 'medium' ? 'Средний' : 'Низкий'}
+                    </Badge>
+                    {task.completed && <Badge variant="outline" className="text-xs bg-green-500/10 text-green-500">Выполнено</Badge>}
                   </div>
-                ))}
-              </div>
-            )}
+                  <p className="font-medium text-sm">{task.title}</p>
+                  {task.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{task.description}</p>}
+                </div>
+              ))}
+            </div>
+          )}
 
-            {selectedDayHabits.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-muted-foreground">Выполненные привычки</h3>
-                {selectedDayHabits.map(habit => (
-                  <div key={habit.id} className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer" onClick={() => setViewingItem({ type: 'habit', data: habit })}>
-                    <Badge variant="outline" className="bg-purple-500/10 text-purple-500 mb-1">Привычка</Badge>
-                    <p className="font-medium">{habit.name}</p>
-                    {habit.description && <p className="text-sm text-muted-foreground mt-1">{habit.description}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
+          {selectedDayHabits.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Выполненные привычки</p>
+              {selectedDayHabits.map(habit => (
+                <div key={habit.id}
+                  className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20 hover:bg-purple-500/10 transition-colors cursor-pointer"
+                  onClick={() => setViewingItem({ type: 'habit', data: habit })}>
+                  <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-500 border-purple-500/20 mb-1">Привычка</Badge>
+                  <p className="font-medium text-sm">{habit.name}</p>
+                  {habit.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{habit.description}</p>}
+                </div>
+              ))}
+            </div>
+          )}
 
-            {selectedDayEvents.length === 0 && selectedDayTasks.length === 0 && selectedDayHabits.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">Нет событий на этот день</p>
-            )}
-          </CardContent>
-        </Card>
+          {selectedDayEvents.length === 0 && selectedDayTasks.length === 0 && selectedDayHabits.length === 0 && (
+            <div className="flex flex-col items-center py-10 gap-3 text-center">
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                <CalendarIcon className="h-6 w-6 text-muted-foreground/40" />
+              </div>
+              <p className="text-sm text-muted-foreground">Нет событий на этот день</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Delete Dialog */}
+      {/* Диалог создания / редактирования */}
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingEvent(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingEvent ? "Редактировать событие" : "Новое событие"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddEvent} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Название</Label>
+              <Input id="title" name="title" placeholder="Введите название события" defaultValue={editingEvent?.title} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="type">Тип</Label>
+              <Select name="type" defaultValue={editingEvent?.type || "meeting"}>
+                <SelectTrigger><SelectValue placeholder="Выберите тип события" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="meeting">Встреча</SelectItem>
+                  <SelectItem value="reminder">Напоминание</SelectItem>
+                  <SelectItem value="note">Заметка</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="date">Дата</Label>
+              <Input id="date" name="date" type="date" defaultValue={editingEvent?.date || selectedDay} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="time">Время</Label>
+              <Input id="time" name="time" type="time" defaultValue={editingEvent?.time} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Описание</Label>
+              <Textarea id="description" name="description" defaultValue={editingEvent?.description || ""} />
+            </div>
+            <Button type="submit" className="w-full">{editingEvent ? "Сохранить" : "Создать"}</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Подтверждение удаления */}
       <AlertDialog open={!!deletingEventId} onOpenChange={() => setDeletingEventId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -521,7 +630,7 @@ export default function Calendar() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* View Dialog */}
+      {/* Просмотр события/задачи/привычки */}
       <Dialog open={!!viewingItem} onOpenChange={() => setViewingItem(null)}>
         <DialogContent>
           <DialogHeader>
@@ -535,38 +644,29 @@ export default function Calendar() {
           </DialogHeader>
           {viewingItem && (
             <div className="space-y-3">
-              {/* Цветная полоска для Google событий */}
               {viewingItem.data.color && (
                 <div className="h-1 rounded-full" style={{ backgroundColor: viewingItem.data.color }} />
               )}
-
               <div>
                 <Label className="text-sm font-semibold">Название</Label>
                 <p className="text-foreground mt-1 font-medium">
                   {viewingItem.type === 'habit' ? viewingItem.data.name : viewingItem.data.title}
                 </p>
               </div>
-
-              {/* Дата */}
               {viewingItem.data.date && (
                 <div>
                   <Label className="text-sm font-semibold">Дата</Label>
                   <p className="text-foreground mt-1">{format(parseISO(viewingItem.data.date), "d MMMM yyyy", { locale: ru })}</p>
                 </div>
               )}
-
-              {/* Время */}
               {viewingItem.data.time && (
                 <div>
                   <Label className="text-sm font-semibold">Время</Label>
                   <p className="text-foreground mt-1">
-                    {viewingItem.data.time}
-                    {viewingItem.data.end_time ? ` — ${viewingItem.data.end_time}` : ''}
+                    {viewingItem.data.time}{viewingItem.data.end_time ? ` — ${viewingItem.data.end_time}` : ''}
                   </p>
                 </div>
               )}
-
-              {/* Место */}
               {viewingItem.data.location && (
                 <div>
                   <Label className="text-sm font-semibold flex items-center gap-1">
@@ -575,34 +675,22 @@ export default function Calendar() {
                   <p className="text-foreground mt-1">{viewingItem.data.location}</p>
                 </div>
               )}
-
-              {/* Meet ссылка */}
               {viewingItem.data.meet_link && (
                 <div>
                   <Label className="text-sm font-semibold flex items-center gap-1">
                     <Video className="h-3.5 w-3.5" /> Видеоконференция
                   </Label>
-                  <a
-                    href={viewingItem.data.meet_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 hover:text-blue-600 hover:underline text-sm mt-1 flex items-center gap-1"
-                  >
-                    <Video className="h-3.5 w-3.5" />
-                    Подключиться к Google Meet
+                  <a href={viewingItem.data.meet_link} target="_blank" rel="noopener noreferrer"
+                    className="text-blue-500 hover:text-blue-600 hover:underline text-sm mt-1 flex items-center gap-1">
+                    <Video className="h-3.5 w-3.5" />Подключиться к Google Meet
                   </a>
                 </div>
               )}
-
-              {/* Повторение */}
               {viewingItem.data.is_recurring && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <RefreshCcw className="h-3.5 w-3.5" />
-                  Повторяющееся событие
+                  <RefreshCcw className="h-3.5 w-3.5" />Повторяющееся событие
                 </div>
               )}
-
-              {/* Тип события */}
               {viewingItem.type === 'event' && !isExternalEvent(viewingItem.data) && viewingItem.data.type && (
                 <div>
                   <Label className="text-sm font-semibold">Тип</Label>
@@ -611,8 +699,6 @@ export default function Calendar() {
                   </p>
                 </div>
               )}
-
-              {/* Приоритет для задач */}
               {viewingItem.type === 'task' && viewingItem.data.priority && (
                 <div>
                   <Label className="text-sm font-semibold">Приоритет</Label>
@@ -621,16 +707,12 @@ export default function Calendar() {
                   </p>
                 </div>
               )}
-
-              {/* Статус задачи */}
               {viewingItem.type === 'task' && (
                 <div>
                   <Label className="text-sm font-semibold">Статус</Label>
                   <p className="text-foreground mt-1">{viewingItem.data.completed ? '✅ Выполнено' : '⏳ В работе'}</p>
                 </div>
               )}
-
-              {/* Частота привычки */}
               {viewingItem.type === 'habit' && viewingItem.data.frequency && (
                 <div>
                   <Label className="text-sm font-semibold">Частота</Label>
@@ -639,16 +721,12 @@ export default function Calendar() {
                   </p>
                 </div>
               )}
-
-              {/* Описание */}
               {viewingItem.data.description && (
                 <div>
                   <Label className="text-sm font-semibold">Описание</Label>
                   <p className="text-foreground mt-1 whitespace-pre-wrap text-sm">{viewingItem.data.description}</p>
                 </div>
               )}
-
-              {/* Подпись для внешних событий */}
               {viewingItem.type === 'event' && isExternalEvent(viewingItem.data) && (
                 <p className="text-xs text-muted-foreground border-t border-border pt-3 flex items-center gap-1.5">
                   {viewingItem.data.source === 'google' ? <GoogleIcon /> : <YandexIcon />}
