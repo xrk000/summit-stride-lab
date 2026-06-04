@@ -1,21 +1,26 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, FileText, Tag, Search, Eye, Pencil, Trash2, X, Sparkles, ChevronRight, Save, Paperclip } from "lucide-react";
+import {
+  Plus, FileText, Tag, Search, Eye, Pencil, Trash2, X,
+  Sparkles, ChevronRight, Save, Paperclip, Loader2
+} from "lucide-react";
 import { useNotes } from "@/hooks/useNotes";
 import { useTags } from "@/hooks/useTags";
 import { useNoteTemplates, type NoteTemplate } from "@/hooks/useNoteTemplates";
 import { useAttachments } from "@/hooks/useAttachments";
 import { TagInput } from "@/components/TagInput";
 import { FileUpload } from "@/components/FileUpload";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
 
-// ─── Шаблоны (встроенные) ───────────────────────────────────────────────────
+// ─── Шаблоны (встроенные) ────────────────────────────────────────────────────
 
 const TEMPLATE_CATEGORIES = [
   { id: "work", label: "Работа", emoji: "💼" },
@@ -25,7 +30,6 @@ const TEMPLATE_CATEGORIES = [
 ];
 
 const NOTE_TEMPLATES = [
-  // ── Работа ──
   {
     id: "meeting", category: "work",
     name: "Протокол встречи", emoji: "🗣️",
@@ -66,7 +70,6 @@ const NOTE_TEMPLATES = [
       content: `📊 ЕЖЕНЕДЕЛЬНЫЙ ОТЧЁТ\nПериод: \n\n✅ ВЫПОЛНЕНО\n— \n— \n— \n\n🔄 В ПРОЦЕССЕ\n— \n— \n\n📅 ПЛАН НА СЛЕДУЮЩУЮ НЕДЕЛЮ\n— [ ] \n— [ ] \n— [ ] \n\n🚧 ПРОБЛЕМЫ И БЛОКЕРЫ\n— \n\n💡 ИДЕИ И ПРЕДЛОЖЕНИЯ\n— `
     }
   },
-  // ── Идеи ──
   {
     id: "brainstorm", category: "ideas",
     name: "Мозговой штурм", emoji: "⚡",
@@ -97,7 +100,6 @@ const NOTE_TEMPLATES = [
       content: `🔲 SWOT-АНАЛИЗ\nОбъект: \n\n💪 СИЛЬНЫЕ СТОРОНЫ (Strengths)\n— \n— \n— \n\n⚠️ СЛАБЫЕ СТОРОНЫ (Weaknesses)\n— \n— \n— \n\n🌱 ВОЗМОЖНОСТИ (Opportunities)\n— \n— \n— \n\n🚨 УГРОЗЫ (Threats)\n— \n— \n— \n\n📌 ВЫВОД:\n`
     }
   },
-  // ── Учёба ──
   {
     id: "lecture", category: "study",
     name: "Конспект лекции", emoji: "📖",
@@ -128,7 +130,6 @@ const NOTE_TEMPLATES = [
       content: `📕 КНИГА\nНазвание: \nАвтор: \nДата прочтения: \nОценка: ⭐⭐⭐⭐⭐\n\n🎯 ГЛАВНАЯ ИДЕЯ КНИГИ:\n\n\n💬 КЛЮЧЕВЫЕ ЦИТАТЫ:\n«»\n«»\n«»\n\n📌 ТОП ИНСАЙТОВ:\n1. \n2. \n3. \n4. \n5. \n\n🔄 ЧТО ИЗМЕНЮ В СВОЕЙ ЖИЗНИ:\n— \n— \n\n👍 КОМУ РЕКОМЕНДУЮ И ПОЧЕМУ:\n`
     }
   },
-  // ── Личное ──
   {
     id: "journal", category: "personal",
     name: "Дневник дня", emoji: "🌅",
@@ -222,7 +223,6 @@ export default function Notes() {
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [newNoteTags, setNewNoteTags] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState("work");
-  // Pending файлы для новой заметки
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const { notes, isLoading, createNote, createNoteAsync, updateNote, deleteNote } = useNotes();
@@ -297,13 +297,11 @@ export default function Notes() {
     } else {
       try {
         const newNote = await createNoteAsync(noteData);
-        // Добавляем теги
         if (newNote && newNoteTags.length > 0) {
           for (const tag of newNoteTags) {
             addTagToEntity({ entityType: 'note', entityId: (newNote as any).id, tagId: tag.id });
           }
         }
-        // Загружаем pending файлы
         if (newNote && pendingFiles.length > 0) {
           for (const file of pendingFiles) {
             uploadAttachment({ file, entityType: 'note', entityId: (newNote as any).id });
@@ -340,209 +338,270 @@ export default function Notes() {
     withTags: Object.values(noteTags).filter(t => t.length > 0).length,
   };
 
-  if (isLoading) return <div className="p-8"><p className="text-muted-foreground">Загрузка заметок...</p></div>;
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Загрузка заметок...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground">Заметки</h1>
-          <p className="text-muted-foreground mt-1">Управляйте своими идеями и информацией</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsTemplatePickerOpen(true)} className="gap-2">
-            <Sparkles className="h-4 w-4" />
-            Шаблоны
-          </Button>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) { setEditingNote(null); setSelectedTemplate(null); setNewNoteTags([]); setPendingFiles([]); }
-          }}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary gap-2">
-                <Plus className="h-4 w-4" />
-                Новая заметка
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  {selectedTemplate && <span>{selectedTemplate.emoji}</span>}
-                  {editingNote ? "Редактировать заметку" : selectedTemplate ? selectedTemplate.name : "Новая заметка"}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleAddNote} className="space-y-4">
-                <div>
-                  <Label htmlFor="title">Название</Label>
-                  <Input
-                    id="title" name="title"
-                    defaultValue={editingNote?.title || selectedTemplate?.template.title || ""}
-                    placeholder="Введите название заметки"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="content">Содержание</Label>
-                  <Textarea
-                    id="content" name="content"
-                    defaultValue={editingNote?.content || selectedTemplate?.template.content || ""}
-                    placeholder="Напишите содержание заметки..."
-                    className="min-h-[280px] font-mono text-sm"
-                  />
-                </div>
-                <div>
-                  <Label>Теги</Label>
-                  <TagInput
-                    entityType="note"
-                    entityId={editingNote?.id || 'temp'}
-                    selectedTags={editingNote ? (noteTags[editingNote.id] || []) : newNoteTags}
-                    isNewEntity={!editingNote}
-                    onTagsChange={async (tags) => {
-                      if (editingNote) {
-                        const updatedTags = await getEntityTags("note", editingNote.id);
-                        setNoteTags(prev => ({ ...prev, [editingNote.id]: updatedTags }));
-                      } else {
-                        setNewNoteTags(tags);
-                      }
-                    }}
-                  />
-                </div>
-                {/* Вложения — при создании pending-режим, при редактировании сразу грузим */}
-                <div>
-                  <Label className="flex items-center gap-1.5 mb-2">
-                    <Paperclip className="h-3.5 w-3.5" />
-                    Вложения
-                  </Label>
-                  <FileUpload
-                    entityType="note"
-                    entityId={editingNote?.id || null}
-                    pendingFiles={editingNote ? undefined : pendingFiles}
-                    onPendingFilesChange={editingNote ? undefined : setPendingFiles}
-                  />
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Отмена</Button>
-                  <Button type="submit">{editingNote ? "Сохранить" : "Создать"}</Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+    <div className="p-6 space-y-6">
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: "Всего заметок", value: stats.total, icon: "📝" },
-          { label: "За эту неделю", value: stats.thisWeek, icon: "🗓️" },
-          { label: "С тегами", value: stats.withTags, icon: "🏷️" },
-        ].map((s) => (
-          <Card key={s.label}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+      {/* ═══════════════════════════════════════════
+          HERO
+      ═══════════════════════════════════════════ */}
+      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 via-primary/80 to-slate-900 p-8 min-h-[160px]">
+        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
+
+        <div className="relative flex flex-col lg:flex-row lg:items-center gap-8">
+          {/* Заголовок */}
+          <div className="flex-1 min-w-0">
+            <p className="text-white/60 text-sm mb-2 flex items-center gap-1.5">
+              <FileText className="h-4 w-4" />
+              Ваши идеи и записи
+            </p>
+            <h1 className="text-4xl lg:text-5xl font-bold text-white">Заметки</h1>
+            <p className="text-white/40 text-xs mt-2">
+              {format(new Date(), "EEEE, d MMMM yyyy", { locale: ru })}
+            </p>
+          </div>
+
+          {/* Статистика */}
+          <div className="hidden lg:flex items-center gap-8 flex-shrink-0">
+            {[
+              { label: "Всего", value: stats.total, icon: FileText, color: "text-blue-400" },
+              { label: "За неделю", value: stats.thisWeek, icon: Sparkles, color: "text-green-400" },
+              { label: "С тегами", value: stats.withTags, icon: Tag, color: "text-amber-400" },
+            ].map(s => (
+              <div key={s.label} className="flex items-center gap-2.5">
+                <s.icon className={cn("h-5 w-5 flex-shrink-0", s.color)} />
                 <div>
-                  <p className="text-xs text-muted-foreground">{s.label}</p>
-                  <p className="text-2xl font-bold mt-0.5">{s.value}</p>
+                  <p className="text-white/40 text-xs leading-none">{s.label}</p>
+                  <p className="text-white font-bold text-2xl leading-tight">{s.value}</p>
                 </div>
-                <span className="text-2xl opacity-60">{s.icon}</span>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            ))}
+          </div>
+
+          {/* Кнопки */}
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              onClick={() => setIsTemplatePickerOpen(true)}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl border transition-all text-sm font-medium bg-amber-500/20 hover:bg-amber-500/40 border-amber-500/30 text-amber-300"
+            >
+              <Sparkles className="h-4 w-4" />
+              Шаблоны
+            </button>
+            <button
+              onClick={() => setIsDialogOpen(true)}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl border transition-all text-sm font-medium bg-blue-500/20 hover:bg-blue-500/40 border-blue-500/30 text-blue-300"
+            >
+              <Plus className="h-4 w-4" />
+              Новая заметка
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Search */}
+      {/* ═══════════════════════════════════════════
+          ПОИСК
+      ═══════════════════════════════════════════ */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Поиск по заметкам и тегам..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10 pr-10"
+          className="pl-9 pr-10 bg-muted/40 border-border/60"
         />
         {searchQuery && (
-          <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          >
             <X className="h-4 w-4" />
           </button>
         )}
       </div>
 
-      {/* Notes Grid */}
+      {/* ═══════════════════════════════════════════
+          СЕТКА ЗАМЕТОК
+      ═══════════════════════════════════════════ */}
       {filteredNotes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <span className="text-5xl mb-4">📝</span>
-          <h3 className="text-lg font-semibold mb-2">Заметок пока нет</h3>
-          <p className="text-muted-foreground text-sm mb-4">Создайте первую заметку или воспользуйтесь шаблоном</p>
-          <Button onClick={() => setIsTemplatePickerOpen(true)} variant="outline" className="gap-2">
-            <Sparkles className="h-4 w-4" />
-            Выбрать шаблон
-          </Button>
+        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+            <FileText className="h-8 w-8 text-muted-foreground/50" />
+          </div>
+          <div>
+            <p className="font-semibold">
+              {searchQuery ? "Заметки не найдены" : "Заметок пока нет"}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {searchQuery ? "Попробуйте изменить запрос" : "Создайте первую заметку или воспользуйтесь шаблоном"}
+            </p>
+          </div>
+          {!searchQuery && (
+            <button
+              onClick={() => setIsTemplatePickerOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all text-sm font-medium bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/20 text-amber-600 dark:text-amber-400"
+            >
+              <Sparkles className="h-4 w-4" />
+              Выбрать шаблон
+            </button>
+          )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredNotes.map((note) => {
             const accent = getNoteAccent(note);
-            const accentClass = accent ? `border-l-4 ${ACCENT_COLORS[accent]}` : "";
+            const accentClass = accent
+              ? `border-l-4 ${ACCENT_COLORS[accent]}`
+              : "border-border/50 bg-card";
             const firstLine = note.content?.split('\n')[0] || "";
             const emoji = firstLine.match(/^\p{Emoji}/u)?.[0] || "📝";
+            const tags = noteTags[note.id] || [];
 
             return (
-              <Card
+              <div
                 key={note.id}
-                className={`hover:shadow-md transition-all cursor-pointer group ${accentClass}`}
+                className={cn(
+                  "group relative flex flex-col p-4 rounded-xl border transition-all cursor-pointer hover:shadow-sm hover:border-border",
+                  accentClass
+                )}
                 onClick={() => { setSelectedNote(note); setIsViewDialogOpen(true); }}
               >
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2 flex-1 min-w-0">
-                      <span className="text-lg flex-shrink-0 mt-0.5">{emoji}</span>
-                      <span className="line-clamp-2 text-base leading-tight">{note.title}</span>
-                    </div>
-                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" onClick={e => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setSelectedNote(note); setIsViewDialogOpen(true); }}>
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingNote(note); setIsDialogOpen(true); }}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeletingNoteId(note.id)}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <p className="text-sm text-muted-foreground line-clamp-3 mb-3 leading-relaxed">
-                    {note.content
-                      ? note.content.replace(/^.+\n/, "").replace(/[#\-\[\]]/g, "").trim() || "Нет содержания"
-                      : "Нет содержания"}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-wrap gap-1">
-                      {(noteTags[note.id] || []).slice(0, 2).map((tag: any) => (
-                        <Badge key={tag.id} variant="secondary" className="text-xs px-1.5 py-0">
-                          {tag.name}
-                        </Badge>
-                      ))}
-                      {(noteTags[note.id] || []).length > 2 && (
-                        <Badge variant="outline" className="text-xs px-1.5 py-0">
-                          +{(noteTags[note.id] || []).length - 2}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground flex-shrink-0">
-                      {new Date(note.updated_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
-                    </p>
+                {/* Заголовок карточки */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <span className="text-lg flex-shrink-0 mt-0.5">{emoji}</span>
+                    <h3 className="font-semibold text-sm leading-snug line-clamp-2">{note.title}</h3>
                   </div>
-                </CardContent>
-              </Card>
+                  {/* Действия при наведении */}
+                  <div
+                    className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <Button variant="ghost" size="icon" className="h-6 w-6"
+                      onClick={() => { setSelectedNote(note); setIsViewDialogOpen(true); }}>
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6"
+                      onClick={() => { setEditingNote(note); setIsDialogOpen(true); }}>
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6"
+                      onClick={() => setDeletingNoteId(note.id)}>
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Превью содержания */}
+                <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed flex-1 mb-3">
+                  {note.content
+                    ? note.content.replace(/^.+\n/, "").replace(/[#\-\[\]]/g, "").trim() || "Нет содержания"
+                    : "Нет содержания"}
+                </p>
+
+                {/* Футер: теги + дата */}
+                <div className="flex items-center justify-between gap-2 mt-auto">
+                  <div className="flex flex-wrap gap-1 min-w-0">
+                    {tags.slice(0, 2).map((tag: any) => (
+                      <Badge key={tag.id} variant="secondary" className="text-xs px-1.5 py-0 h-4">
+                        {tag.name}
+                      </Badge>
+                    ))}
+                    {tags.length > 2 && (
+                      <Badge variant="outline" className="text-xs px-1.5 py-0 h-4">
+                        +{tags.length - 2}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground/60 flex-shrink-0">
+                    {new Date(note.updated_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                  </p>
+                </div>
+              </div>
             );
           })}
         </div>
       )}
 
-      {/* Template Picker Dialog */}
+      {/* Диалог создания / редактирования */}
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        setIsDialogOpen(open);
+        if (!open) { setEditingNote(null); setSelectedTemplate(null); setNewNoteTags([]); setPendingFiles([]); }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedTemplate && <span>{selectedTemplate.emoji}</span>}
+              {editingNote ? "Редактировать заметку" : selectedTemplate ? selectedTemplate.name : "Новая заметка"}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddNote} className="space-y-4">
+            <div>
+              <Label htmlFor="title">Название</Label>
+              <Input
+                id="title" name="title"
+                defaultValue={editingNote?.title || selectedTemplate?.template.title || ""}
+                placeholder="Введите название заметки"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="content">Содержание</Label>
+              <Textarea
+                id="content" name="content"
+                defaultValue={editingNote?.content || selectedTemplate?.template.content || ""}
+                placeholder="Напишите содержание заметки..."
+                className="min-h-[280px] font-mono text-sm"
+              />
+            </div>
+            <div>
+              <Label>Теги</Label>
+              <TagInput
+                entityType="note"
+                entityId={editingNote?.id || 'temp'}
+                selectedTags={editingNote ? (noteTags[editingNote.id] || []) : newNoteTags}
+                isNewEntity={!editingNote}
+                onTagsChange={async (tags) => {
+                  if (editingNote) {
+                    const updatedTags = await getEntityTags("note", editingNote.id);
+                    setNoteTags(prev => ({ ...prev, [editingNote.id]: updatedTags }));
+                  } else {
+                    setNewNoteTags(tags);
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <Label className="flex items-center gap-1.5 mb-2">
+                <Paperclip className="h-3.5 w-3.5" />
+                Вложения
+              </Label>
+              <FileUpload
+                entityType="note"
+                entityId={editingNote?.id || null}
+                pendingFiles={editingNote ? undefined : pendingFiles}
+                onPendingFilesChange={editingNote ? undefined : setPendingFiles}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Отмена</Button>
+              <Button type="submit">{editingNote ? "Сохранить" : "Создать"}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Выбор шаблона */}
       <Dialog open={isTemplatePickerOpen} onOpenChange={setIsTemplatePickerOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
@@ -556,10 +615,12 @@ export default function Notes() {
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${activeCategory === cat.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                  activeCategory === cat.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
               >
                 {cat.emoji} {cat.label}
               </button>
@@ -601,7 +662,10 @@ export default function Notes() {
                   <button
                     key={template.id}
                     onClick={() => openWithTemplate(template)}
-                    className={`text-left p-4 rounded-xl border bg-gradient-to-br ${template.color} hover:scale-[1.02] transition-all group`}
+                    className={cn(
+                      "text-left p-4 rounded-xl border bg-gradient-to-br hover:scale-[1.02] transition-all group",
+                      template.color
+                    )}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <span className="text-2xl">{template.emoji}</span>
@@ -627,14 +691,14 @@ export default function Notes() {
         </DialogContent>
       </Dialog>
 
-      {/* View Note Dialog */}
+      {/* Просмотр заметки */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl pr-8">{selectedNote?.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="whitespace-pre-wrap text-sm leading-relaxed font-mono bg-muted/30 rounded-lg p-4">
+            <div className="whitespace-pre-wrap text-sm leading-relaxed font-mono bg-muted/30 rounded-xl p-4">
               {selectedNote?.content || "Нет содержания"}
             </div>
             {(noteTags[selectedNote?.id] || []).length > 0 && (
@@ -647,24 +711,18 @@ export default function Notes() {
                 ))}
               </div>
             )}
-            {/* Вложения в режиме просмотра */}
             <div className="pt-2 border-t">
               <Label className="flex items-center gap-1.5 mb-2">
                 <Paperclip className="h-3.5 w-3.5" />
                 Вложения
               </Label>
               {selectedNote && (
-                <FileUpload
-                  entityType="note"
-                  entityId={selectedNote.id}
-                  readOnly
-                />
+                <FileUpload entityType="note" entityId={selectedNote.id} readOnly />
               )}
             </div>
             <div className="flex gap-2 pt-2 border-t">
               <Button
-                size="sm"
-                variant="outline"
+                size="sm" variant="outline"
                 onClick={() => { setIsViewDialogOpen(false); setEditingNote(selectedNote); setIsDialogOpen(true); }}
               >
                 <Pencil className="h-3.5 w-3.5 mr-1.5" />
@@ -679,7 +737,7 @@ export default function Notes() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
+      {/* Подтверждение удаления */}
       <AlertDialog open={!!deletingNoteId} onOpenChange={() => setDeletingNoteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
