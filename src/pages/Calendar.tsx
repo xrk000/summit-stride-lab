@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Search, X, Calendar as CalendarIcon, CheckSquare, TrendingUp, RefreshCw, Unplug } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Search, X, Calendar as CalendarIcon, CheckSquare, TrendingUp, RefreshCw, Unplug, MapPin, Video, RefreshCcw } from "lucide-react";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { useTasks } from "@/hooks/useTasks";
@@ -150,6 +150,14 @@ export default function Calendar() {
     return "bg-primary/80";
   };
 
+  const isExternalEvent = (event: any) => event.source === 'google' || event.source === 'yandex';
+
+  const getEventCardClass = (event: any) => {
+    if (event.source === 'google') return 'bg-blue-500/5 hover:bg-blue-500/10 border border-blue-500/20';
+    if (event.source === 'yandex') return 'bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/20';
+    return 'bg-muted/50 hover:bg-muted';
+  };
+
   const getEventSourceBadge = (event: any) => {
     if (event.source === 'google') return (
       <Badge variant="outline" className="text-xs border-blue-500/40 text-blue-600 dark:text-blue-400 gap-1 px-1.5">
@@ -166,14 +174,6 @@ export default function Calendar() {
         {event.type === 'meeting' ? 'Встреча' : event.type === 'task' ? 'Задача' : event.type === 'reminder' ? 'Напоминание' : 'Заметка'}
       </Badge>
     );
-  };
-
-  const isExternalEvent = (event: any) => event.source === 'google' || event.source === 'yandex';
-
-  const getEventCardClass = (event: any) => {
-    if (event.source === 'google') return 'bg-blue-500/5 hover:bg-blue-500/10 border border-blue-500/20';
-    if (event.source === 'yandex') return 'bg-orange-500/5 hover:bg-orange-500/10 border border-orange-500/20';
-    return 'bg-muted/50 hover:bg-muted';
   };
 
   if (isLoading) return <div className="p-8"><p className="text-muted-foreground">Загрузка календаря...</p></div>;
@@ -300,8 +300,6 @@ export default function Calendar() {
                           {result.type === 'task' && <CheckSquare className="h-4 w-4 text-primary" />}
                           {result.type === 'habit' && <TrendingUp className="h-4 w-4 text-primary" />}
                           <span className="font-medium text-sm">{result.type === 'habit' ? (result as any).name : (result as any).title}</span>
-                          {(result as any).source === 'google' && <span className="flex items-center gap-1 text-xs text-blue-500"><GoogleIcon />Google</span>}
-                          {(result as any).source === 'yandex' && <span className="flex items-center gap-1 text-xs text-orange-500"><YandexIcon />Яндекс</span>}
                         </div>
                         <p className="text-xs text-muted-foreground">{format(parseISO(result.date), 'dd MMMM yyyy', { locale: ru })}</p>
                       </div>
@@ -364,7 +362,13 @@ export default function Calendar() {
                     {hasItems && (
                       <div className="flex gap-1 mt-1 justify-center flex-wrap">
                         {manualEvents.slice(0, 1).map((_, i) => <div key={`m-${i}`} className="w-1.5 h-1.5 rounded-full bg-blue-500" />)}
-                        {googleEvents.slice(0, 1).map((_, i) => <div key={`g-${i}`} className="w-1.5 h-1.5 rounded-full bg-red-400" />)}
+                        {googleEvents.slice(0, 1).map((ev, i) => (
+                          <div
+                            key={`g-${i}`}
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: ev.color || '#ea4335' }}
+                          />
+                        ))}
                         {yandexEvents.slice(0, 1).map((_, i) => <div key={`y-${i}`} className="w-1.5 h-1.5 rounded-full bg-orange-400" />)}
                         {dayTasks.slice(0, 1).map((t, i) => (
                           <div key={`t-${i}`} className={`w-1.5 h-1.5 rounded-full ${t.priority === 'high' ? 'bg-red-500' : t.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'}`} />
@@ -398,16 +402,61 @@ export default function Calendar() {
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold text-muted-foreground">События</h3>
                 {selectedDayEvents.map(event => (
-                  <div key={event.id} className={`p-3 rounded-lg transition-colors cursor-pointer ${getEventCardClass(event)}`} onClick={() => setViewingItem({ type: 'event', data: event })}>
+                  <div
+                    key={event.id}
+                    className={`p-3 rounded-lg transition-colors cursor-pointer ${getEventCardClass(event)}`}
+                    style={event.color ? { borderLeftColor: event.color, borderLeftWidth: '3px' } : {}}
+                    onClick={() => setViewingItem({ type: 'event', data: event })}
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
+                        {/* Время + бейдж источника */}
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          {event.time && <span className="text-xs text-muted-foreground">{event.time}</span>}
+                          {event.time && (
+                            <span className="text-xs text-muted-foreground font-medium">
+                              {event.time}{event.end_time ? ` — ${event.end_time}` : ''}
+                            </span>
+                          )}
                           {getEventSourceBadge(event)}
+                          {event.is_recurring && (
+                            <span title="Повторяющееся событие">
+                              <RefreshCcw className="h-3 w-3 text-muted-foreground" />
+                            </span>
+                          )}
                         </div>
+
+                        {/* Название */}
                         <p className="font-medium text-sm truncate">{event.title}</p>
-                        {event.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{event.description}</p>}
+
+                        {/* Место */}
+                        {event.location && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
+                            <MapPin className="h-3 w-3 flex-shrink-0" />
+                            {event.location}
+                          </p>
+                        )}
+
+                        {/* Описание */}
+                        {event.description && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{event.description}</p>
+                        )}
+
+                        {/* Meet ссылка */}
+                        {event.meet_link && (
+                          <a
+                            href={event.meet_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            className="text-xs text-blue-500 hover:text-blue-600 hover:underline flex items-center gap-1 mt-1"
+                          >
+                            <Video className="h-3 w-3" />
+                            Подключиться к Meet
+                          </a>
+                        )}
                       </div>
+
+                      {/* Кнопки редактирования (только для своих событий) */}
                       {!isExternalEvent(event) && (
                         <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" onClick={() => handleEditEvent(event)}><Pencil className="h-4 w-4" /></Button>
@@ -452,7 +501,7 @@ export default function Calendar() {
             )}
 
             {selectedDayEvents.length === 0 && selectedDayTasks.length === 0 && selectedDayHabits.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-4">Нет событий, задач и привычек на этот день</p>
+              <p className="text-sm text-muted-foreground text-center py-4">Нет событий на этот день</p>
             )}
           </CardContent>
         </Card>
@@ -463,7 +512,7 @@ export default function Calendar() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить событие?</AlertDialogTitle>
-            <AlertDialogDescription>Это действие нельзя отменить. Событие будет удалено навсегда.</AlertDialogDescription>
+            <AlertDialogDescription>Это действие нельзя отменить.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Отмена</AlertDialogCancel>
@@ -477,63 +526,129 @@ export default function Calendar() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {viewingItem?.type === 'event' && viewingItem.data.source === 'google' && <><GoogleIcon /><span>Событие из Google Calendar</span></>}
-              {viewingItem?.type === 'event' && viewingItem.data.source === 'yandex' && <><YandexIcon /><span>Событие из Яндекс Календаря</span></>}
+              {viewingItem?.type === 'event' && viewingItem.data.source === 'google' && <><GoogleIcon /><span>Google Calendar</span></>}
+              {viewingItem?.type === 'event' && viewingItem.data.source === 'yandex' && <><YandexIcon /><span>Яндекс Календарь</span></>}
               {viewingItem?.type === 'event' && !viewingItem.data.source && 'Событие'}
               {viewingItem?.type === 'task' && 'Задача'}
               {viewingItem?.type === 'habit' && 'Привычка'}
             </DialogTitle>
           </DialogHeader>
           {viewingItem && (
-            <div className="space-y-4">
+            <div className="space-y-3">
+              {/* Цветная полоска для Google событий */}
+              {viewingItem.data.color && (
+                <div className="h-1 rounded-full" style={{ backgroundColor: viewingItem.data.color }} />
+              )}
+
               <div>
                 <Label className="text-sm font-semibold">Название</Label>
-                <p className="text-foreground mt-1">{viewingItem.type === 'habit' ? viewingItem.data.name : viewingItem.data.title}</p>
+                <p className="text-foreground mt-1 font-medium">
+                  {viewingItem.type === 'habit' ? viewingItem.data.name : viewingItem.data.title}
+                </p>
               </div>
-              {viewingItem.type === 'event' && !isExternalEvent(viewingItem.data) && viewingItem.data.type && (
-                <div>
-                  <Label className="text-sm font-semibold">Тип</Label>
-                  <p className="text-foreground mt-1">{viewingItem.data.type === 'meeting' ? 'Встреча' : viewingItem.data.type === 'reminder' ? 'Напоминание' : 'Заметка'}</p>
-                </div>
-              )}
+
+              {/* Дата */}
               {viewingItem.data.date && (
                 <div>
                   <Label className="text-sm font-semibold">Дата</Label>
                   <p className="text-foreground mt-1">{format(parseISO(viewingItem.data.date), "d MMMM yyyy", { locale: ru })}</p>
                 </div>
               )}
+
+              {/* Время */}
               {viewingItem.data.time && (
                 <div>
                   <Label className="text-sm font-semibold">Время</Label>
-                  <p className="text-foreground mt-1">{viewingItem.data.time}</p>
+                  <p className="text-foreground mt-1">
+                    {viewingItem.data.time}
+                    {viewingItem.data.end_time ? ` — ${viewingItem.data.end_time}` : ''}
+                  </p>
                 </div>
               )}
-              {viewingItem.type === 'task' && (
-                <>
-                  {viewingItem.data.priority && (
-                    <div>
-                      <Label className="text-sm font-semibold">Приоритет</Label>
-                      <p className="text-foreground mt-1">{viewingItem.data.priority === 'high' ? 'Высокий' : viewingItem.data.priority === 'medium' ? 'Средний' : 'Низкий'}</p>
-                    </div>
-                  )}
-                  <div>
-                    <Label className="text-sm font-semibold">Статус</Label>
-                    <p className="text-foreground mt-1">{viewingItem.data.completed ? 'Выполнено' : 'В работе'}</p>
-                  </div>
-                </>
+
+              {/* Место */}
+              {viewingItem.data.location && (
+                <div>
+                  <Label className="text-sm font-semibold flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" /> Место
+                  </Label>
+                  <p className="text-foreground mt-1">{viewingItem.data.location}</p>
+                </div>
               )}
+
+              {/* Meet ссылка */}
+              {viewingItem.data.meet_link && (
+                <div>
+                  <Label className="text-sm font-semibold flex items-center gap-1">
+                    <Video className="h-3.5 w-3.5" /> Видеоконференция
+                  </Label>
+                  <a
+                    href={viewingItem.data.meet_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:text-blue-600 hover:underline text-sm mt-1 flex items-center gap-1"
+                  >
+                    <Video className="h-3.5 w-3.5" />
+                    Подключиться к Google Meet
+                  </a>
+                </div>
+              )}
+
+              {/* Повторение */}
+              {viewingItem.data.is_recurring && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <RefreshCcw className="h-3.5 w-3.5" />
+                  Повторяющееся событие
+                </div>
+              )}
+
+              {/* Тип события */}
+              {viewingItem.type === 'event' && !isExternalEvent(viewingItem.data) && viewingItem.data.type && (
+                <div>
+                  <Label className="text-sm font-semibold">Тип</Label>
+                  <p className="text-foreground mt-1">
+                    {viewingItem.data.type === 'meeting' ? 'Встреча' : viewingItem.data.type === 'reminder' ? 'Напоминание' : 'Заметка'}
+                  </p>
+                </div>
+              )}
+
+              {/* Приоритет для задач */}
+              {viewingItem.type === 'task' && viewingItem.data.priority && (
+                <div>
+                  <Label className="text-sm font-semibold">Приоритет</Label>
+                  <p className="text-foreground mt-1">
+                    {viewingItem.data.priority === 'high' ? '🔴 Высокий' : viewingItem.data.priority === 'medium' ? '🟡 Средний' : '🟢 Низкий'}
+                  </p>
+                </div>
+              )}
+
+              {/* Статус задачи */}
+              {viewingItem.type === 'task' && (
+                <div>
+                  <Label className="text-sm font-semibold">Статус</Label>
+                  <p className="text-foreground mt-1">{viewingItem.data.completed ? '✅ Выполнено' : '⏳ В работе'}</p>
+                </div>
+              )}
+
+              {/* Частота привычки */}
               {viewingItem.type === 'habit' && viewingItem.data.frequency && (
                 <div>
                   <Label className="text-sm font-semibold">Частота</Label>
-                  <p className="text-foreground mt-1">{viewingItem.data.frequency === 'daily' ? 'Ежедневно' : viewingItem.data.frequency === 'weekly' ? 'Еженедельно' : viewingItem.data.frequency}</p>
+                  <p className="text-foreground mt-1">
+                    {viewingItem.data.frequency === 'daily' ? 'Ежедневно' : viewingItem.data.frequency === 'every_2_days' ? 'Каждые 2 дня' : 'Каждые 3 дня'}
+                  </p>
                 </div>
               )}
+
+              {/* Описание */}
               {viewingItem.data.description && (
                 <div>
                   <Label className="text-sm font-semibold">Описание</Label>
-                  <p className="text-foreground mt-1 whitespace-pre-wrap">{viewingItem.data.description}</p>
+                  <p className="text-foreground mt-1 whitespace-pre-wrap text-sm">{viewingItem.data.description}</p>
                 </div>
               )}
+
+              {/* Подпись для внешних событий */}
               {viewingItem.type === 'event' && isExternalEvent(viewingItem.data) && (
                 <p className="text-xs text-muted-foreground border-t border-border pt-3 flex items-center gap-1.5">
                   {viewingItem.data.source === 'google' ? <GoogleIcon /> : <YandexIcon />}

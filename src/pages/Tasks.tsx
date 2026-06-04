@@ -1,14 +1,17 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, ChevronRight, Pencil, Trash2, Filter, X, Paperclip, Download, FileText, Image, File, Loader2 } from "lucide-react";
+import {
+  Plus, Search, ChevronRight, Pencil, Trash2, Filter, X,
+  Paperclip, Download, FileText, Image, File, Loader2,
+  CheckSquare, CheckCheck, AlertTriangle, Clock, ListTodo
+} from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -18,7 +21,7 @@ import { useAllTaskTags } from "@/hooks/useAllTaskTags";
 import { TaskTagSelector } from "@/components/TaskTagSelector";
 import { TaskAttachments } from "@/components/TaskAttachments";
 import { useAttachments, Attachment } from "@/hooks/useAttachments";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isPast, isToday } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -39,7 +42,6 @@ function getFileIcon(fileName: string) {
   return <File className="h-4 w-4 text-muted-foreground shrink-0" />;
 }
 
-// Компонент списка вложений только для просмотра (в detail dialog)
 function AttachmentViewList({ taskId }: { taskId: string }) {
   const { getEntityAttachments, getAttachmentUrl } = useAttachments();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -83,19 +85,14 @@ function AttachmentViewList({ taskId }: { taskId: string }) {
   return (
     <div className="space-y-1.5">
       {attachments.map((attachment) => (
-        <div
-          key={attachment.id}
-          className="flex items-center gap-2 p-2 rounded-md border bg-muted/20"
-        >
+        <div key={attachment.id} className="flex items-center gap-2 p-2 rounded-md border bg-muted/20">
           {getFileIcon(attachment.file_name)}
           <div className="flex-1 min-w-0">
             <p className="text-sm truncate">{attachment.file_name}</p>
             <p className="text-xs text-muted-foreground">{formatFileSize(attachment.file_size)}</p>
           </div>
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 shrink-0"
+            variant="ghost" size="icon" className="h-7 w-7 shrink-0"
             onClick={() => handleDownload(attachment)}
             disabled={downloadingId === attachment.id}
             title="Скачать"
@@ -130,13 +127,11 @@ export default function Tasks() {
   const { data: editingTaskTags } = useTaskTags(editingTask?.id || null);
   const { data: taskTagsMap } = useAllTaskTags();
 
-  // Открываем задачу, если передана через state (например, из проекта)
   useEffect(() => {
     const state = location.state as { selectedTaskId?: string };
     if (state?.selectedTaskId) {
       const task = tasks.find(t => t.id === state.selectedTaskId);
       if (task) setSelectedTask(task);
-      // Очищаем state, чтобы диалог не открывался снова после закрытия
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.state, tasks, navigate, location.pathname]);
@@ -226,119 +221,103 @@ export default function Tasks() {
     return matchesFilter && (matchesSearch || matchesTags) && matchesDate;
   });
 
+  const activeTasks = tasks.filter(t => !t.completed).length;
+  const completedTasks = tasks.filter(t => t.completed).length;
+  const overdueTasks = tasks.filter(t =>
+    !t.completed && t.due_date &&
+    isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date))
+  ).length;
+
   if (isLoading) {
     return (
-      <div className="p-8">
-        <p className="text-muted-foreground">Загрузка задач...</p>
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Загрузка задач...</span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-4xl font-bold text-foreground">Задачи</h1>
-          <p className="text-muted-foreground mt-1">
-            Всего задач: {tasks.length}
-          </p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) { setEditingTask(null); setPendingFiles([]); }
-        }}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary">
-              <Plus className="h-4 w-4 mr-2" />
+    <div className="p-6 space-y-6">
+
+      {/* ═══════════════════════════════════════════
+          HERO
+      ═══════════════════════════════════════════ */}
+      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 via-primary/80 to-slate-900 p-8 min-h-[160px]">
+        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
+
+        <div className="relative flex flex-col lg:flex-row lg:items-center gap-8">
+          {/* Заголовок */}
+          <div className="flex-1 min-w-0">
+            <p className="text-white/60 text-sm mb-2 flex items-center gap-1.5">
+              <CheckSquare className="h-4 w-4" />
+              Управление задачами
+            </p>
+            <h1 className="text-4xl lg:text-5xl font-bold text-white">Задачи</h1>
+            <p className="text-white/40 text-xs mt-2">
+              {format(new Date(), "EEEE, d MMMM yyyy", { locale: ru })}
+            </p>
+          </div>
+
+          {/* Статистика */}
+          <div className="hidden lg:flex items-center gap-8 flex-shrink-0">
+            {[
+              { label: "Всего", value: tasks.length, icon: ListTodo, color: "text-blue-400" },
+              { label: "Активных", value: activeTasks, icon: Clock, color: "text-amber-400" },
+              { label: "Выполнено", value: completedTasks, icon: CheckCheck, color: "text-green-400" },
+              { label: "Просрочено", value: overdueTasks, icon: AlertTriangle, color: "text-red-400" },
+            ].map(s => (
+              <div key={s.label} className="flex items-center gap-2.5">
+                <s.icon className={cn("h-5 w-5 flex-shrink-0", s.color)} />
+                <div>
+                  <p className="text-white/40 text-xs leading-none">{s.label}</p>
+                  <p className="text-white font-bold text-2xl leading-tight">{s.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Кнопка */}
+          <div className="flex-shrink-0">
+            <button
+              onClick={() => setIsDialogOpen(true)}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl border transition-all text-sm font-medium bg-blue-500/20 hover:bg-blue-500/40 border-blue-500/30 text-blue-300"
+            >
+              <Plus className="h-4 w-4" />
               Новая задача
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingTask ? "Редактировать задачу" : "Новая задача"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleAddTask} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Название</Label>
-                <Input
-                  id="title"
-                  name="title"
-                  defaultValue={editingTask?.title}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="priority">Приоритет</Label>
-                <Select name="priority" defaultValue={editingTask?.priority || "medium"}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Выберите приоритет" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="high">Высокий</SelectItem>
-                    <SelectItem value="medium">Средний</SelectItem>
-                    <SelectItem value="low">Низкий</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="deadline">Дедлайн</Label>
-                <Input
-                  id="deadline"
-                  name="deadline"
-                  type="date"
-                  defaultValue={editingTask?.due_date || ""}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Описание</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  defaultValue={editingTask?.description || ""}
-                />
-              </div>
-              <TaskTagSelector
-                selectedTagIds={selectedTagIds}
-                onTagsChange={setSelectedTagIds}
-              />
-              <TaskAttachments
-                taskId={editingTask?.id || null}
-                pendingFiles={pendingFiles}
-                onPendingFilesChange={setPendingFiles}
-              />
-              <Button type="submit" className="w-full">
-                {editingTask ? "Сохранить" : "Создать"}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Filters and Search */}
-      <div className="flex gap-4">
-        <div className="relative flex-1">
+      {/* ═══════════════════════════════════════════
+          ФИЛЬТРЫ
+      ═══════════════════════════════════════════ */}
+      <div className="flex gap-3 flex-wrap items-center">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Поиск задач и тегов..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 bg-muted/40 border-border/60"
           />
         </div>
+
         <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="icon" className="relative">
+            <Button variant="outline" size="icon" className="bg-muted/40 border-border/60 relative shrink-0">
               <Filter className="h-4 w-4" />
-              {filterDate && (
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full" />
-              )}
+              {filterDate && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-primary rounded-full" />}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="end">
             <div className="p-4 space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="font-semibold">Фильтр по дате</h4>
+                <h4 className="font-semibold text-sm">Фильтр по дате</h4>
                 {filterDate && (
                   <Button variant="ghost" size="sm" onClick={() => setFilterDate(undefined)}>
                     <X className="h-4 w-4 mr-1" />
@@ -355,85 +334,176 @@ export default function Tasks() {
             </div>
           </PopoverContent>
         </Popover>
-        <div className="flex gap-2">
-          <Button variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")}>Все</Button>
-          <Button variant={filter === "active" ? "default" : "outline"} onClick={() => setFilter("active")}>Активные</Button>
-          <Button variant={filter === "completed" ? "default" : "outline"} onClick={() => setFilter("completed")}>Завершенные</Button>
+
+        <div className="flex gap-1 p-1 rounded-lg bg-muted/40 border border-border/60 shrink-0">
+          {(["all", "active", "completed"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                filter === f
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {f === "all"
+                ? `Все (${tasks.length})`
+                : f === "active"
+                  ? `Активные (${activeTasks})`
+                  : `Завершённые (${completedTasks})`}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Tasks List */}
-      <div className="grid gap-4">
+      {/* ═══════════════════════════════════════════
+          СПИСОК ЗАДАЧ
+      ═══════════════════════════════════════════ */}
+      <div className="space-y-2">
         {filteredTasks.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-              Задачи не найдены
-            </CardContent>
-          </Card>
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+              <CheckSquare className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <div>
+              <p className="font-semibold">Задачи не найдены</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {searchQuery || filterDate ? "Попробуйте изменить фильтры" : "Создайте свою первую задачу"}
+              </p>
+            </div>
+          </div>
         ) : (
-          filteredTasks.map((task) => (
-            <Card key={task.id} className={cn("hover:shadow-md transition-shadow", task.completed && "opacity-60")}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between gap-4 min-w-0 overflow-hidden">
-                  <div className="flex items-start gap-3 flex-1 min-w-0 overflow-hidden">
-                    <input
-                      type="checkbox"
-                      checked={task.completed || false}
-                      onChange={() => toggleTask(task.id)}
-                      className="mt-1 h-5 w-5 shrink-0 rounded border-border cursor-pointer"
-                    />
-                    <div className="flex-1 min-w-0 space-y-1.5 overflow-hidden">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <h3 className={cn("font-semibold text-lg truncate", task.completed && "line-through text-muted-foreground")}>
-                          {task.title}
-                        </h3>
-                        {task.priority && (
-                          <Badge
-                            variant={task.priority === "high" ? "destructive" : task.priority === "medium" ? "default" : "secondary"}
-                            className="shrink-0"
-                          >
-                            {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
-                          </Badge>
-                        )}
-                      </div>
-                      {task.description && (
-                        <p className="text-sm text-muted-foreground truncate">{task.description}</p>
-                      )}
-                      {task.due_date && (
-                        <p className="text-sm text-muted-foreground">
-                          Дедлайн: {format(parseISO(task.due_date), "dd MMMM yyyy", { locale: ru })}
-                        </p>
-                      )}
-                      {taskTagsMap?.get(task.id) && taskTagsMap.get(task.id)!.length > 0 && (
-                        <div className="flex flex-wrap gap-1 items-center">
-                          {taskTagsMap.get(task.id)!.map(tag => (
-                            <Badge key={tag.id} variant="outline" className="text-xs max-w-[120px] truncate">
-                              {tag.name}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+          filteredTasks.map((task) => {
+            const isOverdue = !task.completed && task.due_date &&
+              isPast(parseISO(task.due_date)) && !isToday(parseISO(task.due_date));
+            const isDueToday = !task.completed && task.due_date && isToday(parseISO(task.due_date));
+
+            return (
+              <div
+                key={task.id}
+                className={cn(
+                  "group flex items-start gap-3 p-4 rounded-xl border transition-all",
+                  task.completed
+                    ? "opacity-50 border-border/40 bg-muted/20"
+                    : cn(
+                      "hover:shadow-sm",
+                      task.priority === "high" && "bg-red-500/5 border-border/50 border-l-2 border-l-red-500",
+                      task.priority === "medium" && "bg-amber-500/5 border-border/50 border-l-2 border-l-amber-500",
+                      task.priority === "low" && "bg-green-500/5 border-border/50 border-l-2 border-l-green-500",
+                      !task.priority && "border-border/50 bg-card"
+                    )
+                )}
+              >
+                {/* Чекбокс */}
+                <input
+                  type="checkbox"
+                  checked={task.completed || false}
+                  onChange={() => toggleTask(task.id)}
+                  className="mt-1 h-4 w-4 shrink-0 cursor-pointer rounded"
+                />
+
+                {/* Контент */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <span className={cn(
+                      "font-semibold text-sm",
+                      task.completed && "line-through text-muted-foreground"
+                    )}>
+                      {task.title}
+                    </span>
+                    {task.priority && (
+                      <Badge
+                        variant={task.priority === "high" ? "destructive" : task.priority === "medium" ? "default" : "secondary"}
+                        className="text-xs shrink-0 h-5 px-1.5"
+                      >
+                        {task.priority === "high" ? "Высокий" : task.priority === "medium" ? "Средний" : "Низкий"}
+                      </Badge>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button variant="ghost" size="icon" onClick={() => handleEditTask(task)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDeleteTask(task.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setSelectedTask(task)}>
-                      <ChevronRight className="h-5 w-5" />
-                    </Button>
+
+                  {task.description && (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{task.description}</p>
+                  )}
+
+                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                    {task.due_date && (
+                      <span className={cn(
+                        "text-xs flex items-center gap-1",
+                        isOverdue ? "text-red-500" : isDueToday ? "text-amber-500" : "text-muted-foreground"
+                      )}>
+                        <Clock className="h-3 w-3" />
+                        {isOverdue ? "Просрочено: " : isDueToday ? "Сегодня: " : ""}
+                        {format(parseISO(task.due_date), "d MMM yyyy", { locale: ru })}
+                      </span>
+                    )}
+                    {taskTagsMap?.get(task.id)?.map(tag => (
+                      <Badge key={tag.id} variant="outline" className="text-xs px-1.5 h-5 py-0">
+                        {tag.name}
+                      </Badge>
+                    ))}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))
+
+                {/* Действия */}
+                <div className="flex items-center gap-1 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditTask(task)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteTask(task.id)}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedTask(task)}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
 
-      {/* Task Detail Dialog */}
+      {/* Диалог создания / редактирования */}
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        setIsDialogOpen(open);
+        if (!open) { setEditingTask(null); setPendingFiles([]); }
+      }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingTask ? "Редактировать задачу" : "Новая задача"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddTask} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Название</Label>
+              <Input id="title" name="title" defaultValue={editingTask?.title} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="priority">Приоритет</Label>
+              <Select name="priority" defaultValue={editingTask?.priority || "medium"}>
+                <SelectTrigger><SelectValue placeholder="Выберите приоритет" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">Высокий</SelectItem>
+                  <SelectItem value="medium">Средний</SelectItem>
+                  <SelectItem value="low">Низкий</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deadline">Дедлайн</Label>
+              <Input id="deadline" name="deadline" type="date" defaultValue={editingTask?.due_date || ""} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Описание</Label>
+              <Textarea id="description" name="description" defaultValue={editingTask?.description || ""} />
+            </div>
+            <TaskTagSelector selectedTagIds={selectedTagIds} onTagsChange={setSelectedTagIds} />
+            <TaskAttachments taskId={editingTask?.id || null} pendingFiles={pendingFiles} onPendingFilesChange={setPendingFiles} />
+            <Button type="submit" className="w-full">{editingTask ? "Сохранить" : "Создать"}</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Детали задачи */}
       <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -462,7 +532,6 @@ export default function Tasks() {
               <Label>Статус</Label>
               <p className="text-sm mt-1">{selectedTask?.completed ? "Завершена" : "Активна"}</p>
             </div>
-            {/* Вложения в режиме просмотра */}
             <div>
               <Label className="flex items-center gap-1.5 mb-2">
                 <Paperclip className="h-3.5 w-3.5" />
@@ -474,7 +543,7 @@ export default function Tasks() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Подтверждение удаления */}
       <AlertDialog open={!!deletingTaskId} onOpenChange={() => setDeletingTaskId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
