@@ -18,6 +18,7 @@ import GoogleCalendarCard from "@/components/GoogleCalendarCard";
 import VkConnect from "@/components/VkConnect";
 import { useState, useRef, useEffect } from "react";
 import { format, subDays } from "date-fns";
+import { isHabitDueOnDate } from "@/lib/habitUtils";
 import { ru } from "date-fns/locale";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -64,9 +65,13 @@ const Profile = () => {
 
   const today = new Date();
   const habitProgress = habits.map(habit => {
-    const last7 = Array.from({ length: 7 }, (_, i) => format(subDays(today, i), 'yyyy-MM-dd'));
-    const done = habitEntries.filter(e => e.habit_id === habit.id && e.completed && last7.includes(e.date)).length;
-    return { id: habit.id, name: habit.name, done, pct: Math.round((done / 7) * 100) };
+    const last7Dates = Array.from({ length: 7 }, (_, i) => subDays(today, i));
+    const scheduledDates = last7Dates.filter(d => isHabitDueOnDate(habit, d));
+    const done = scheduledDates.filter(d =>
+      habitEntries.some(e => e.habit_id === habit.id && e.date === format(d, 'yyyy-MM-dd') && e.completed)
+    ).length;
+    const total = Math.max(scheduledDates.length, 1);
+    return { id: habit.id, name: habit.name, done, pct: Math.round((done / total) * 100) };
   });
   const avgHabit = habitProgress.length > 0
     ? Math.round(habitProgress.reduce((a, h) => a + h.pct, 0) / habitProgress.length) : 0;

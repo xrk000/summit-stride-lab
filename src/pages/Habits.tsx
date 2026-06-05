@@ -14,6 +14,7 @@ import { useTags } from "@/hooks/useTags";
 import { useAllHabitTags } from "@/hooks/useAllHabitTags";
 import { TagInput } from "@/components/TagInput";
 import { cn } from "@/lib/utils";
+import { isHabitDueOnDate } from "@/lib/habitUtils";
 import { format, startOfWeek, addDays, subWeeks, isToday, isFuture, startOfDay, parseISO, differenceInDays } from "date-fns";
 import { ru } from "date-fns/locale";
 
@@ -90,14 +91,7 @@ export default function Habits() {
     toggleHabitEntry({ habitId, date: format(date, 'yyyy-MM-dd') });
   };
 
-  const shouldShowHabitForDate = (habit: any, date: Date) => {
-    if (!habit.frequency || habit.frequency === 'daily') return true;
-    const habitCreatedAt = parseISO(habit.created_at);
-    const daysDiff = differenceInDays(startOfDay(date), startOfDay(habitCreatedAt));
-    if (habit.frequency === 'every_2_days') return daysDiff % 2 === 0;
-    if (habit.frequency === 'every_3_days') return daysDiff % 3 === 0;
-    return true;
-  };
+  const shouldShowHabitForDate = isHabitDueOnDate;
 
   const isHabitCompleted = (habitId: string, date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');

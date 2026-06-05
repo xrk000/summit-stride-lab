@@ -129,7 +129,7 @@ export const useDataExport = () => {
       let yPosition = 20;
 
       doc.setFontSize(20);
-      doc.text("ProductiveMe - Отчет", 14, yPosition);
+      doc.text("Momentum - Отчет", 14, yPosition);
       yPosition += 10;
       
       doc.setFontSize(10);

@@ -11,8 +11,10 @@ import {
   Calendar, CheckSquare, TrendingUp, Plus, AlertCircle,
   FileText, Flame, Star, AlertTriangle, CheckCheck,
   ArrowRight, Settings, GripVertical, Eye, EyeOff, Check as CheckIcon,
+  ChevronDown, Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isHabitDueOnDate } from "@/lib/habitUtils";
 import { useTasks } from "@/hooks/useTasks";
 import { useUserStats } from "@/hooks/useUserStats";
 import { useHabits } from "@/hooks/useHabits";
@@ -217,6 +219,9 @@ export default function Dashboard() {
   const [widgets, setWidgets] = useState<WidgetConfig[]>(loadConfig);
   const [isEditing, setIsEditing] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [isBriefOpen, setIsBriefOpen] = useState(() => {
+    try { return localStorage.getItem('flowstate_brief_open') === 'true'; } catch { return false; }
+  });
 
   const updateWidgets = useCallback((next: WidgetConfig[]) => {
     setWidgets(next);
@@ -278,9 +283,13 @@ export default function Dashboard() {
     .slice(0, 5);
 
   const habitProgress = habits.map(habit => {
-    const last7 = Array.from({ length: 7 }, (_, i) => format(subDays(today, i), 'yyyy-MM-dd'));
-    const done = habitEntries.filter(e => e.habit_id === habit.id && e.completed && last7.includes(e.date)).length;
-    return { id: habit.id, name: habit.name, done, pct: Math.round((done / 7) * 100) };
+    const last7Dates = Array.from({ length: 7 }, (_, i) => subDays(today, i));
+    const scheduledDates = last7Dates.filter(d => isHabitDueOnDate(habit, d));
+    const done = scheduledDates.filter(d =>
+      habitEntries.some(e => e.habit_id === habit.id && e.date === format(d, 'yyyy-MM-dd') && e.completed)
+    ).length;
+    const total = Math.max(scheduledDates.length, 1);
+    return { id: habit.id, name: habit.name, done, pct: Math.round((done / total) * 100) };
   });
   const avgHabit = habitProgress.length > 0
     ? Math.round(habitProgress.reduce((a, h) => a + h.pct, 0) / habitProgress.length) : 0;
@@ -313,6 +322,14 @@ export default function Dashboard() {
   const recentNotes = [...notes]
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
     .slice(0, 3);
+
+  const todayStr = format(today, 'yyyy-MM-dd');
+  const todayDueHabits = habits.filter(h => isHabitDueOnDate(h, today));
+  const todayHabitsCompleted = todayDueHabits.filter(h =>
+    habitEntries.some(e => e.habit_id === h.id && e.date === todayStr && e.completed)
+  ).length;
+  const todayEventsList = events.filter(e => e.date === todayStr);
+  const nextTodayEvent = todayEventsList.find(e => e.time);
 
   // ── Обработчики форм ──
   const handleAddTask = (e: React.FormEvent<HTMLFormElement>) => {
@@ -696,6 +713,94 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ── Daily Brief ── */}
+      <div className="rounded-xl border border-border/60 bg-muted/20 overflow-hidden">
+        <button
+          onClick={() => { const n = !isBriefOpen; setIsBriefOpen(n); localStorage.setItem('flowstate_brief_open', String(n)); }}
+          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors text-left"
+        >
+          <Zap className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+          <div className="flex-1 flex items-center gap-2 text-sm flex-wrap min-w-0">
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <CheckSquare className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
+              <span className={cn(todayTasks.length > 0 && todayCompleted === todayTasks.length ? "text-green-400" : "")}>
+                {todayTasks.length === 0 ? "Нет задач" : todayCompleted === todayTasks.length ? "Все задачи выполнены" : `${todayCompleted}/${todayTasks.length} задач`}
+              </span>
+            </span>
+            <span className="text-muted-foreground/30 select-none">·</span>
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+              <span>
+                {nextTodayEvent
+                  ? `${nextTodayEvent.title} в ${nextTodayEvent.time}`
+                  : todayEventsList.length > 0
+                    ? `${todayEventsList.length} событие`
+                    : "Событий нет"}
+              </span>
+            </span>
+            <span className="text-muted-foreground/30 select-none">·</span>
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <Flame className="h-3.5 w-3.5 text-orange-400 flex-shrink-0" />
+              <span className={cn(todayDueHabits.length > 0 && todayHabitsCompleted === todayDueHabits.length ? "text-orange-400" : "")}>
+                {todayDueHabits.length === 0 ? "Привычек нет" : `${todayHabitsCompleted}/${todayDueHabits.length} привычек`}
+              </span>
+            </span>
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform duration-200", isBriefOpen && "rotate-180")} />
+        </button>
+
+        {isBriefOpen && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 pb-4 pt-3 border-t border-border/40">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Задачи</p>
+              {todayTasks.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Нет задач на сегодня</p>
+              ) : todayTasks.slice(0, 4).map(task => (
+                <div key={task.id} className="flex items-center gap-2 text-sm">
+                  <div className={cn("w-3.5 h-3.5 rounded-full border flex-shrink-0",
+                    task.completed ? "bg-green-500 border-green-500" : "border-muted-foreground/40")} />
+                  <span className={cn("truncate", task.completed && "line-through text-muted-foreground")}>{task.title}</span>
+                </div>
+              ))}
+              {todayTasks.length > 4 && <p className="text-xs text-muted-foreground">+{todayTasks.length - 4} ещё</p>}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">События сегодня</p>
+              {todayEventsList.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Нет событий сегодня</p>
+              ) : todayEventsList.slice(0, 3).map(event => (
+                <div key={event.id} className="flex items-start gap-2 text-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0 mt-1.5" />
+                  <span className="truncate">
+                    {event.title}
+                    {event.time && <span className="text-muted-foreground"> · {event.time}</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Привычки</p>
+              {todayDueHabits.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Нет привычек на сегодня</p>
+              ) : todayDueHabits.slice(0, 4).map(habit => {
+                const done = habitEntries.some(e => e.habit_id === habit.id && e.date === todayStr && e.completed);
+                return (
+                  <div key={habit.id} className="flex items-center gap-2 text-sm">
+                    <div className={cn("w-3.5 h-3.5 rounded-full border flex-shrink-0",
+                      done ? "bg-green-500 border-green-500" : "border-muted-foreground/40")} />
+                    <span className={cn("truncate", done && "text-muted-foreground")}>{habit.name}</span>
+                    {done && <CheckIcon className="h-3 w-3 text-green-500 flex-shrink-0" />}
+                  </div>
+                );
+              })}
+              {todayDueHabits.length > 4 && <p className="text-xs text-muted-foreground">+{todayDueHabits.length - 4} ещё</p>}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Баннер режима редактирования ── */}

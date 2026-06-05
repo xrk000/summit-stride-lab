@@ -64,7 +64,7 @@ export default function Layout() {
     <>
       <div className="p-6 border-b border-border text-center">
         <h1 className="text-2xl font-display font-bold bg-gradient-primary bg-clip-text text-transparent">
-          ProductiveMe
+          Momentum
         </h1>
         <p className="text-xs text-muted-foreground mt-1">Ваша продуктивность</p>
       </div>
@@ -159,7 +159,7 @@ export default function Layout() {
           </SheetContent>
         </Sheet>
         <h1 className="text-lg font-display font-bold bg-gradient-primary bg-clip-text text-transparent">
-          ProductiveMe
+          Momentum
         </h1>
         <div className="w-10" />
       </div>
