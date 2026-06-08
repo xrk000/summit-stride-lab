@@ -18,6 +18,9 @@ import { cn } from "@/lib/utils";
 import { useTasks, Task } from "@/hooks/useTasks";
 import { useTaskTags } from "@/hooks/useTaskTags";
 import { useAllTaskTags } from "@/hooks/useAllTaskTags";
+import { useProjects } from "@/hooks/useProjects";
+import { useAllTaskProjects } from "@/hooks/useAllTaskProjects";
+import { FolderKanban } from "lucide-react";
 import { TaskTagSelector } from "@/components/TaskTagSelector";
 import { TaskAttachments } from "@/components/TaskAttachments";
 import { useAttachments, Attachment } from "@/hooks/useAttachments";
@@ -118,6 +121,7 @@ export default function Tasks() {
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [filterDate, setFilterDate] = useState<Date | undefined>();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -126,6 +130,8 @@ export default function Tasks() {
   const { uploadAttachment } = useAttachments();
   const { data: editingTaskTags } = useTaskTags(editingTask?.id || null);
   const { data: taskTagsMap } = useAllTaskTags();
+  const { projects } = useProjects();
+  const { data: taskProjectsMap } = useAllTaskProjects();
 
   useEffect(() => {
     const state = location.state as { selectedTaskId?: string };
@@ -144,6 +150,14 @@ export default function Tasks() {
     }
   }, [editingTask, editingTaskTags]);
 
+  useEffect(() => {
+    if (editingTask && taskProjectsMap) {
+      setSelectedProjectId(taskProjectsMap.get(editingTask.id) ?? null);
+    } else if (!editingTask) {
+      setSelectedProjectId(null);
+    }
+  }, [editingTask, taskProjectsMap]);
+
   const handleAddTask = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -156,6 +170,7 @@ export default function Tasks() {
         due_date: formData.get("deadline") as string,
         description: formData.get("description") as string,
         tagIds: selectedTagIds,
+        projectId: selectedProjectId,
       });
       setEditingTask(null);
     } else {
@@ -168,6 +183,7 @@ export default function Tasks() {
           completed: false,
           completed_at: null,
           tagIds: selectedTagIds,
+          projectId: selectedProjectId,
         });
         if (pendingFiles.length > 0 && newTask) {
           for (const file of pendingFiles) {
@@ -180,6 +196,7 @@ export default function Tasks() {
     }
     setIsDialogOpen(false);
     setSelectedTagIds([]);
+    setSelectedProjectId(null);
     setPendingFiles([]);
     e.currentTarget.reset();
   };
@@ -466,7 +483,7 @@ export default function Tasks() {
       {/* Диалог создания / редактирования */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => {
         setIsDialogOpen(open);
-        if (!open) { setEditingTask(null); setPendingFiles([]); }
+        if (!open) { setEditingTask(null); setPendingFiles([]); setSelectedProjectId(null); }
       }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -495,6 +512,28 @@ export default function Tasks() {
             <div className="space-y-2">
               <Label htmlFor="description">Описание</Label>
               <Textarea id="description" name="description" defaultValue={editingTask?.description || ""} />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <FolderKanban className="h-3.5 w-3.5 text-muted-foreground" />
+                Проект
+              </Label>
+              <Select
+                value={selectedProjectId ?? "none"}
+                onValueChange={v => setSelectedProjectId(v === "none" ? null : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Без проекта" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">Без проекта</span>
+                  </SelectItem>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <TaskTagSelector selectedTagIds={selectedTagIds} onTagsChange={setSelectedTagIds} />
             <TaskAttachments taskId={editingTask?.id || null} pendingFiles={pendingFiles} onPendingFilesChange={setPendingFiles} />

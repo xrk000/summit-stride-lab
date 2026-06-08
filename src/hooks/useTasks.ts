@@ -37,7 +37,7 @@ export const useTasks = () => {
   });
 
   const createTask = useMutation({
-    mutationFn: async ({ tagIds, ...newTask }: Omit<Task, "id" | "user_id" | "created_at" | "updated_at"> & { tagIds?: string[] }) => {
+    mutationFn: async ({ tagIds, projectId, ...newTask }: Omit<Task, "id" | "user_id" | "created_at" | "updated_at"> & { tagIds?: string[]; projectId?: string | null }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
@@ -49,24 +49,25 @@ export const useTasks = () => {
 
       if (error) throw error;
 
-      // Добавляем теги к задаче
       if (tagIds && tagIds.length > 0 && data) {
-        const tagRelations = tagIds.map(tagId => ({
-          task_id: data.id,
-          tag_id: tagId
-        }));
-
-        const { error: tagError } = await supabase
-          .from("task_tags")
-          .insert(tagRelations);
-
+        const tagRelations = tagIds.map(tagId => ({ task_id: data.id, tag_id: tagId }));
+        const { error: tagError } = await supabase.from("task_tags").insert(tagRelations);
         if (tagError) throw tagError;
+      }
+
+      if (projectId && data) {
+        const { error: projError } = await supabase
+          .from("project_tasks")
+          .insert({ project_id: projectId, task_id: data.id });
+        if (projError) throw projError;
       }
 
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["allTaskProjects"] });
+      queryClient.invalidateQueries({ queryKey: ["projectTasks"] });
       toast({
         title: "Задача создана",
         description: "Задача успешно добавлена",
@@ -82,7 +83,7 @@ export const useTasks = () => {
   });
 
   const updateTask = useMutation({
-    mutationFn: async ({ id, tagIds, ...updates }: Partial<Task> & { id: string; tagIds?: string[] }) => {
+    mutationFn: async ({ id, tagIds, projectId, ...updates }: Partial<Task> & { id: string; tagIds?: string[]; projectId?: string | null }) => {
       const { data, error } = await supabase
         .from("tasks")
         .update(updates)
@@ -92,23 +93,22 @@ export const useTasks = () => {
 
       if (error) throw error;
 
-      // Обновляем теги задачи
       if (tagIds !== undefined) {
-        // Удаляем старые связи
         await supabase.from("task_tags").delete().eq("task_id", id);
-
-        // Добавляем новые связи
         if (tagIds.length > 0) {
-          const tagRelations = tagIds.map(tagId => ({
-            task_id: id,
-            tag_id: tagId
-          }));
-
-          const { error: tagError } = await supabase
-            .from("task_tags")
-            .insert(tagRelations);
-
+          const tagRelations = tagIds.map(tagId => ({ task_id: id, tag_id: tagId }));
+          const { error: tagError } = await supabase.from("task_tags").insert(tagRelations);
           if (tagError) throw tagError;
+        }
+      }
+
+      if (projectId !== undefined) {
+        await supabase.from("project_tasks").delete().eq("task_id", id);
+        if (projectId) {
+          const { error: projError } = await supabase
+            .from("project_tasks")
+            .insert({ project_id: projectId, task_id: id });
+          if (projError) throw projError;
         }
       }
 
@@ -116,6 +116,8 @@ export const useTasks = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["allTaskProjects"] });
+      queryClient.invalidateQueries({ queryKey: ["projectTasks"] });
       toast({
         title: "Задача обновлена",
         description: "Изменения сохранены",
