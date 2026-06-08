@@ -165,6 +165,39 @@ export type Database = {
           },
         ]
       }
+      event_tasks: {
+        Row: {
+          event_id: string
+          task_id: string
+          created_at: string
+        }
+        Insert: {
+          event_id: string
+          task_id: string
+          created_at?: string
+        }
+        Update: {
+          event_id?: string
+          task_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_tasks_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_integrations: {
         Row: {
           created_at: string

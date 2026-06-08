@@ -39,7 +39,7 @@ export const useCalendarEvents = () => {
   });
 
   const createEvent = useMutation({
-    mutationFn: async (newEvent: Omit<CalendarEvent, "id" | "user_id" | "created_at" | "updated_at" | "source" | "google_event_id">) => {
+    mutationFn: async ({ taskIds, ...newEvent }: Omit<CalendarEvent, "id" | "user_id" | "created_at" | "updated_at" | "source" | "google_event_id"> & { taskIds?: string[] }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
@@ -50,11 +50,20 @@ export const useCalendarEvents = () => {
         .single();
 
       if (error) throw error;
+
+      if (taskIds && taskIds.length > 0 && data) {
+        await supabase.from("event_tasks").insert(
+          taskIds.map(taskId => ({ event_id: data.id, task_id: taskId }))
+        );
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["calendarEvents"] });
       queryClient.invalidateQueries({ queryKey: ["userStats"] });
+      queryClient.invalidateQueries({ queryKey: ["eventTasks"] });
+      queryClient.invalidateQueries({ queryKey: ["allTaskEvents"] });
       toast({
         title: "Событие создано",
         description: "Событие успешно добавлено",
@@ -70,7 +79,7 @@ export const useCalendarEvents = () => {
   });
 
   const updateEvent = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<CalendarEvent> & { id: string }) => {
+    mutationFn: async ({ id, taskIds, ...updates }: Partial<CalendarEvent> & { id: string; taskIds?: string[] }) => {
       const { data, error } = await supabase
         .from("calendar_events")
         .update(updates)
@@ -79,10 +88,22 @@ export const useCalendarEvents = () => {
         .single();
 
       if (error) throw error;
+
+      if (taskIds !== undefined) {
+        await supabase.from("event_tasks").delete().eq("event_id", id);
+        if (taskIds.length > 0) {
+          await supabase.from("event_tasks").insert(
+            taskIds.map(taskId => ({ event_id: id, task_id: taskId }))
+          );
+        }
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["calendarEvents"] });
+      queryClient.invalidateQueries({ queryKey: ["eventTasks"] });
+      queryClient.invalidateQueries({ queryKey: ["allTaskEvents"] });
       toast({
         title: "Событие обновлено",
         description: "Изменения сохранены",

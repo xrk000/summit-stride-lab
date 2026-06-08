@@ -37,7 +37,7 @@ export const useTasks = () => {
   });
 
   const createTask = useMutation({
-    mutationFn: async ({ tagIds, projectId, ...newTask }: Omit<Task, "id" | "user_id" | "created_at" | "updated_at"> & { tagIds?: string[]; projectId?: string | null }) => {
+    mutationFn: async ({ tagIds, projectId, eventId, ...newTask }: Omit<Task, "id" | "user_id" | "created_at" | "updated_at"> & { tagIds?: string[]; projectId?: string | null; eventId?: string | null }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
@@ -62,12 +62,21 @@ export const useTasks = () => {
         if (projError) throw projError;
       }
 
+      if (eventId && data) {
+        const { error: evErr } = await supabase
+          .from("event_tasks")
+          .insert({ event_id: eventId, task_id: data.id });
+        if (evErr) throw evErr;
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["allTaskProjects"] });
       queryClient.invalidateQueries({ queryKey: ["projectTasks"] });
+      queryClient.invalidateQueries({ queryKey: ["allTaskEvents"] });
+      queryClient.invalidateQueries({ queryKey: ["eventTasks"] });
       toast({
         title: "Задача создана",
         description: "Задача успешно добавлена",
@@ -83,7 +92,7 @@ export const useTasks = () => {
   });
 
   const updateTask = useMutation({
-    mutationFn: async ({ id, tagIds, projectId, ...updates }: Partial<Task> & { id: string; tagIds?: string[]; projectId?: string | null }) => {
+    mutationFn: async ({ id, tagIds, projectId, eventId, ...updates }: Partial<Task> & { id: string; tagIds?: string[]; projectId?: string | null; eventId?: string | null }) => {
       const { data, error } = await supabase
         .from("tasks")
         .update(updates)
@@ -112,12 +121,24 @@ export const useTasks = () => {
         }
       }
 
+      if (eventId !== undefined) {
+        await supabase.from("event_tasks").delete().eq("task_id", id);
+        if (eventId) {
+          const { error: evErr } = await supabase
+            .from("event_tasks")
+            .insert({ event_id: eventId, task_id: id });
+          if (evErr) throw evErr;
+        }
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["allTaskProjects"] });
       queryClient.invalidateQueries({ queryKey: ["projectTasks"] });
+      queryClient.invalidateQueries({ queryKey: ["allTaskEvents"] });
+      queryClient.invalidateQueries({ queryKey: ["eventTasks"] });
       toast({
         title: "Задача обновлена",
         description: "Изменения сохранены",

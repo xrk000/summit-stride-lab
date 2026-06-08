@@ -20,7 +20,9 @@ import { useTaskTags } from "@/hooks/useTaskTags";
 import { useAllTaskTags } from "@/hooks/useAllTaskTags";
 import { useProjects } from "@/hooks/useProjects";
 import { useAllTaskProjects } from "@/hooks/useAllTaskProjects";
-import { FolderKanban } from "lucide-react";
+import { useCalendarEvents } from "@/hooks/useCalendarEvents";
+import { useAllTaskEvents } from "@/hooks/useAllTaskEvents";
+import { FolderKanban, CalendarDays } from "lucide-react";
 import { TaskTagSelector } from "@/components/TaskTagSelector";
 import { TaskAttachments } from "@/components/TaskAttachments";
 import { useAttachments, Attachment } from "@/hooks/useAttachments";
@@ -122,6 +124,9 @@ export default function Tasks() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [eventSearch, setEventSearch] = useState("");
+  const [isEventComboOpen, setIsEventComboOpen] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [filterDate, setFilterDate] = useState<Date | undefined>();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -132,6 +137,8 @@ export default function Tasks() {
   const { data: taskTagsMap } = useAllTaskTags();
   const { projects } = useProjects();
   const { data: taskProjectsMap } = useAllTaskProjects();
+  const { events } = useCalendarEvents();
+  const { data: taskEventsMap } = useAllTaskEvents();
 
   useEffect(() => {
     const state = location.state as { selectedTaskId?: string };
@@ -158,6 +165,14 @@ export default function Tasks() {
     }
   }, [editingTask, taskProjectsMap]);
 
+  useEffect(() => {
+    if (editingTask && taskEventsMap) {
+      setSelectedEventId(taskEventsMap.get(editingTask.id) ?? null);
+    } else if (!editingTask) {
+      setSelectedEventId(null);
+    }
+  }, [editingTask, taskEventsMap]);
+
   const handleAddTask = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -171,6 +186,7 @@ export default function Tasks() {
         description: formData.get("description") as string,
         tagIds: selectedTagIds,
         projectId: selectedProjectId,
+        eventId: selectedEventId,
       });
       setEditingTask(null);
     } else {
@@ -184,6 +200,7 @@ export default function Tasks() {
           completed_at: null,
           tagIds: selectedTagIds,
           projectId: selectedProjectId,
+          eventId: selectedEventId,
         });
         if (pendingFiles.length > 0 && newTask) {
           for (const file of pendingFiles) {
@@ -197,6 +214,7 @@ export default function Tasks() {
     setIsDialogOpen(false);
     setSelectedTagIds([]);
     setSelectedProjectId(null);
+    setSelectedEventId(null);
     setPendingFiles([]);
     e.currentTarget.reset();
   };
@@ -454,6 +472,17 @@ export default function Tasks() {
                         {format(parseISO(task.due_date), "d MMM yyyy", { locale: ru })}
                       </span>
                     )}
+                    {(() => {
+                      const evId = taskEventsMap?.get(task.id);
+                      const ev = evId ? events.find(e => e.id === evId) : null;
+                      return ev ? (
+                        <span className="text-xs flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                          <CalendarDays className="h-3 w-3" />
+                          {format(parseISO(ev.date), "d MMM", { locale: ru })}
+                          {ev.time ? ` · ${ev.time}` : ""} · {ev.title}
+                        </span>
+                      ) : null;
+                    })()}
                     {taskTagsMap?.get(task.id)?.map(tag => (
                       <Badge key={tag.id} variant="outline" className="text-xs px-1.5 h-5 py-0">
                         {tag.name}
@@ -483,7 +512,7 @@ export default function Tasks() {
       {/* Диалог создания / редактирования */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => {
         setIsDialogOpen(open);
-        if (!open) { setEditingTask(null); setPendingFiles([]); setSelectedProjectId(null); }
+        if (!open) { setEditingTask(null); setPendingFiles([]); setSelectedProjectId(null); setSelectedEventId(null); setEventSearch(""); setIsEventComboOpen(false); }
       }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -535,6 +564,86 @@ export default function Tasks() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                Связанное событие
+              </Label>
+              <Popover open={isEventComboOpen} onOpenChange={setIsEventComboOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(
+                      "w-full flex items-center justify-between gap-2 h-9 px-3 rounded-md border border-input bg-background text-sm ring-offset-background",
+                      "hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                      !selectedEventId && "text-muted-foreground"
+                    )}
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      {selectedEventId ? (() => {
+                        const ev = events.find(e => e.id === selectedEventId);
+                        return ev ? (
+                          <>
+                            <span className="text-muted-foreground text-xs flex-shrink-0">
+                              {format(parseISO(ev.date), "d MMM", { locale: ru })}
+                              {ev.time ? ` · ${ev.time}` : ""}
+                            </span>
+                            <span className="truncate">{ev.title}</span>
+                          </>
+                        ) : "Без события";
+                      })() : "Без события"}
+                    </span>
+                    <Search className="h-3.5 w-3.5 flex-shrink-0 opacity-50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  <div className="p-2 border-b border-border/50">
+                    <Input
+                      placeholder="Поиск события..."
+                      value={eventSearch}
+                      onChange={e => setEventSearch(e.target.value)}
+                      className="h-8 text-sm"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-52 overflow-y-auto p-1">
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedEventId(null); setIsEventComboOpen(false); setEventSearch(""); }}
+                      className={cn(
+                        "w-full text-left px-2.5 py-2 rounded-md text-sm transition-colors",
+                        !selectedEventId ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/60"
+                      )}
+                    >
+                      Без события
+                    </button>
+                    {[...events]
+                      .sort((a, b) => a.date.localeCompare(b.date))
+                      .filter(ev => ev.title.toLowerCase().includes(eventSearch.toLowerCase()))
+                      .map(ev => (
+                        <button
+                          key={ev.id}
+                          type="button"
+                          onClick={() => { setSelectedEventId(ev.id); setIsEventComboOpen(false); setEventSearch(""); }}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-sm text-left transition-colors",
+                            selectedEventId === ev.id ? "bg-primary/10 text-primary" : "hover:bg-muted/60 text-foreground"
+                          )}
+                        >
+                          <span className="text-muted-foreground text-xs flex-shrink-0">
+                            {format(parseISO(ev.date), "d MMM", { locale: ru })}
+                            {ev.time ? ` · ${ev.time}` : ""}
+                          </span>
+                          <span className="flex-1 truncate">{ev.title}</span>
+                        </button>
+                      ))}
+                    {events.filter(ev => ev.title.toLowerCase().includes(eventSearch.toLowerCase())).length === 0 && eventSearch && (
+                      <p className="text-xs text-muted-foreground text-center py-3">Нет совпадений</p>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
             <TaskTagSelector selectedTagIds={selectedTagIds} onTagsChange={setSelectedTagIds} />
             <TaskAttachments taskId={editingTask?.id || null} pendingFiles={pendingFiles} onPendingFilesChange={setPendingFiles} />
             <Button type="submit" className="w-full">{editingTask ? "Сохранить" : "Создать"}</Button>
@@ -571,6 +680,30 @@ export default function Tasks() {
               <Label>Статус</Label>
               <p className="text-sm mt-1">{selectedTask?.completed ? "Завершена" : "Активна"}</p>
             </div>
+            {(() => {
+              const evId = selectedTask && taskEventsMap?.get(selectedTask.id);
+              const ev = evId ? events.find(e => e.id === evId) : null;
+              return ev ? (
+                <div>
+                  <Label className="flex items-center gap-1.5 mb-2">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    Связанное событие
+                  </Label>
+                  <div className="flex items-center gap-3 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+                    <div className="w-9 h-9 rounded-lg bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+                      <CalendarDays className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{ev.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(parseISO(ev.date), "d MMMM yyyy", { locale: ru })}
+                        {ev.time ? ` · ${ev.time}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null;
+            })()}
             <div>
               <Label className="flex items-center gap-1.5 mb-2">
                 <Paperclip className="h-3.5 w-3.5" />

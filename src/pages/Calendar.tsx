@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,6 +15,7 @@ import {
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { useTasks } from "@/hooks/useTasks";
+import { useEventTasks } from "@/hooks/useEventTasks";
 import { useHabits } from "@/hooks/useHabits";
 import { useAllEventTags } from "@/hooks/useAllEventTags";
 import { useAllTaskTags } from "@/hooks/useAllTaskTags";
@@ -45,6 +46,8 @@ export default function Calendar() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+  const [dialogTaskIds, setDialogTaskIds] = useState<string[]>([]);
+  const [taskSearch, setTaskSearch] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -57,6 +60,16 @@ export default function Calendar() {
   const { isConnected: isYandexConnected } = useYandexCalendar();
   const { tasks } = useTasks();
   const { habits, habitEntries } = useHabits();
+  const { data: eventLinkedTasks = [] } = useEventTasks(
+    viewingItem?.type === 'event' ? viewingItem.data.id : null
+  );
+  const { data: editingEventTasksRaw } = useEventTasks(editingEvent?.id ?? null);
+
+  useEffect(() => {
+    if (editingEvent?.id && editingEventTasksRaw) {
+      setDialogTaskIds(editingEventTasksRaw.map((t: any) => t.id));
+    }
+  }, [editingEvent?.id, editingEventTasksRaw]);
   const { data: eventTagsMap } = useAllEventTags();
   const { data: taskTagsMap } = useAllTaskTags();
   const { data: habitTagsMap } = useAllHabitTags();
@@ -65,12 +78,14 @@ export default function Calendar() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     if (editingEvent) {
-      updateEvent({ id: editingEvent.id, title: formData.get("title") as string, type: formData.get("type") as string, date: formData.get("date") as string, time: formData.get("time") as string, description: formData.get("description") as string });
+      updateEvent({ id: editingEvent.id, title: formData.get("title") as string, type: formData.get("type") as string, date: formData.get("date") as string, time: formData.get("time") as string, description: formData.get("description") as string, taskIds: dialogTaskIds });
       setEditingEvent(null);
     } else {
-      createEvent({ title: formData.get("title") as string, type: formData.get("type") as string, date: formData.get("date") as string, time: formData.get("time") as string, description: formData.get("description") as string });
+      createEvent({ title: formData.get("title") as string, type: formData.get("type") as string, date: formData.get("date") as string, time: formData.get("time") as string, description: formData.get("description") as string, taskIds: dialogTaskIds });
     }
     setIsDialogOpen(false);
+    setDialogTaskIds([]);
+    setTaskSearch("");
     e.currentTarget.reset();
   };
 
@@ -575,7 +590,7 @@ export default function Calendar() {
       </div>
 
       {/* Диалог создания / редактирования */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingEvent(null); }}>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) { setEditingEvent(null); setDialogTaskIds([]); setTaskSearch(""); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingEvent ? "Редактировать событие" : "Новое событие"}</DialogTitle>
@@ -608,6 +623,85 @@ export default function Calendar() {
               <Label htmlFor="description">Описание</Label>
               <Textarea id="description" name="description" defaultValue={editingEvent?.description || ""} />
             </div>
+
+            {/* Привязанные задачи */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                Задачи <span className="text-muted-foreground font-normal">({dialogTaskIds.length} выбрано)</span>
+              </Label>
+              <Input
+                placeholder="Поиск задачи..."
+                value={taskSearch}
+                onChange={e => setTaskSearch(e.target.value)}
+                className="h-8 text-sm"
+              />
+              {(() => {
+                const filtered = tasks
+                  .filter(t => !t.completed)
+                  .filter(t => t.title.toLowerCase().includes(taskSearch.toLowerCase()));
+                if (filtered.length === 0) return (
+                  <p className="text-xs text-muted-foreground text-center py-2">Нет совпадений</p>
+                );
+                return (
+                  <div className="max-h-40 overflow-y-auto space-y-1 rounded-lg border border-border/50 p-1">
+                    {filtered.map(task => {
+                      const checked = dialogTaskIds.includes(task.id);
+                      return (
+                        <button
+                          key={task.id}
+                          type="button"
+                          onClick={() => setDialogTaskIds(prev =>
+                            checked ? prev.filter(id => id !== task.id) : [...prev, task.id]
+                          )}
+                          className={cn(
+                            "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm text-left transition-colors",
+                            checked
+                              ? "bg-primary/10 text-primary"
+                              : "hover:bg-muted/60 text-foreground"
+                          )}
+                        >
+                          <div className={cn(
+                            "w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0",
+                            checked ? "bg-primary border-primary" : "border-muted-foreground/40"
+                          )}>
+                            {checked && <CheckSquare className="h-2.5 w-2.5 text-primary-foreground" />}
+                          </div>
+                          <span className="flex-1 truncate">{task.title}</span>
+                          {task.priority && (
+                            <span className={cn(
+                              "text-xs px-1.5 py-0.5 rounded flex-shrink-0",
+                              task.priority === 'high' ? "bg-red-500/10 text-red-500" :
+                              task.priority === 'medium' ? "bg-amber-500/10 text-amber-500" :
+                              "bg-green-500/10 text-green-500"
+                            )}>
+                              {task.priority === 'high' ? 'Высок.' : task.priority === 'medium' ? 'Средн.' : 'Низк.'}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+              {dialogTaskIds.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {dialogTaskIds.map(id => {
+                    const task = tasks.find(t => t.id === id);
+                    return task ? (
+                      <span key={id}
+                        className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                        {task.title}
+                        <button type="button" onClick={() => setDialogTaskIds(prev => prev.filter(i => i !== id))}>
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ) : null;
+                  })}
+                </div>
+              )}
+            </div>
+
             <Button type="submit" className="w-full">{editingEvent ? "Сохранить" : "Создать"}</Button>
           </form>
         </DialogContent>
@@ -722,6 +816,43 @@ export default function Calendar() {
                 <div>
                   <Label className="text-sm font-semibold">Описание</Label>
                   <p className="text-foreground mt-1 whitespace-pre-wrap text-sm">{viewingItem.data.description}</p>
+                </div>
+              )}
+              {viewingItem.type === 'event' && eventLinkedTasks.length > 0 && (
+                <div>
+                  <Label className="text-sm font-semibold flex items-center gap-1.5 mb-2">
+                    <CheckSquare className="h-3.5 w-3.5 text-blue-500" />
+                    Связанные задачи ({eventLinkedTasks.length})
+                  </Label>
+                  <div className="space-y-1.5">
+                    {eventLinkedTasks.map((task: any) => (
+                      <div key={task.id}
+                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 bg-muted/30">
+                        <div className={cn(
+                          "w-3.5 h-3.5 rounded-full border-2 flex-shrink-0",
+                          task.completed
+                            ? "bg-green-500 border-green-500"
+                            : "border-muted-foreground/40"
+                        )} />
+                        <span className={cn(
+                          "text-sm flex-1 truncate",
+                          task.completed && "line-through text-muted-foreground"
+                        )}>
+                          {task.title}
+                        </span>
+                        {task.priority && (
+                          <span className={cn(
+                            "text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0",
+                            task.priority === 'high' ? "bg-red-500/10 text-red-500" :
+                            task.priority === 'medium' ? "bg-amber-500/10 text-amber-500" :
+                            "bg-green-500/10 text-green-500"
+                          )}>
+                            {task.priority === 'high' ? 'Высокий' : task.priority === 'medium' ? 'Средний' : 'Низкий'}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               {viewingItem.type === 'event' && isExternalEvent(viewingItem.data) && (
