@@ -409,7 +409,7 @@ export default function Projects() {
 
                 {/* Описание */}
                 {project.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{project.description}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-2 break-words mb-3">{project.description}</p>
                 )}
 
                 {/* Прогресс */}

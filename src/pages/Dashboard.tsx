@@ -371,7 +371,7 @@ export default function Dashboard() {
                     <Badge variant={focusTask.priority === 'high' ? 'destructive' : focusTask.priority === 'medium' ? 'default' : 'secondary'} className="text-xs">
                       {focusTask.priority === 'high' ? '🔴 Высокий приоритет' : focusTask.priority === 'medium' ? '🟡 Средний' : '🟢 Низкий'}
                     </Badge>
-                    <p className="font-semibold text-lg leading-snug">{focusTask.title}</p>
+                    <p className="font-semibold text-lg leading-snug break-words line-clamp-3">{focusTask.title}</p>
                     {focusTask.description && <p className="text-sm text-muted-foreground line-clamp-2">{focusTask.description}</p>}
                     {focusTask.due_date && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1">

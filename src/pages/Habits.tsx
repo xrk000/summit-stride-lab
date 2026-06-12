@@ -282,7 +282,7 @@ export default function Habits() {
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold">{habit.name}</h3>
+                      <h3 className="font-semibold break-all">{habit.name}</h3>
                       {streak > 0 && (
                         <Badge variant="secondary" className="text-xs gap-1">
                           🔥 {streak} дней
@@ -296,7 +296,7 @@ export default function Habits() {
                       )}
                     </div>
                     {habit.description && (
-                      <p className="text-sm text-muted-foreground mt-0.5">{habit.description}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2 break-words">{habit.description}</p>
                     )}
                     {habitTags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">

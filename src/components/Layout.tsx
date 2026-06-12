@@ -79,8 +79,8 @@ export default function Layout() {
                   {profile?.username?.[0]?.toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium text-foreground">
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm font-medium text-foreground truncate">
                   {profile?.username || "Пользователь"}
                 </p>
                 <p className="text-xs text-muted-foreground">Профиль</p>
@@ -170,7 +170,7 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto pt-16 md:pt-0">
+      <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden pt-16 md:pt-0">
         <Outlet />
       </main>
 

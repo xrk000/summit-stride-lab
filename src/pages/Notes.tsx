@@ -480,7 +480,7 @@ export default function Notes() {
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-start gap-2 flex-1 min-w-0">
                     <span className="text-lg flex-shrink-0 mt-0.5">{emoji}</span>
-                    <h3 className="font-semibold text-sm leading-snug line-clamp-2">{note.title}</h3>
+                    <h3 className="font-semibold text-sm leading-snug line-clamp-2 break-all">{note.title}</h3>
                   </div>
                   {/* Действия при наведении */}
                   <div
@@ -695,10 +695,10 @@ export default function Notes() {
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-xl pr-8">{selectedNote?.title}</DialogTitle>
+            <DialogTitle className="text-xl pr-8 break-all">{selectedNote?.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="whitespace-pre-wrap text-sm leading-relaxed font-mono bg-muted/30 rounded-xl p-4">
+            <div className="whitespace-pre-wrap break-words text-sm leading-relaxed font-mono bg-muted/30 rounded-xl p-4">
               {selectedNote?.content || "Нет содержания"}
             </div>
             {(noteTags[selectedNote?.id] || []).length > 0 && (

@@ -3,6 +3,8 @@ import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { CheckSquare, TrendingUp, Target, Award, BarChart2, ListTodo, Loader2, FolderKanban } from "lucide-react";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { cn } from "@/lib/utils";
+import { ActivityHeatmap } from "@/components/analytics/ActivityHeatmap";
+import { PlanVsFactChart } from "@/components/analytics/PlanVsFactChart";
 
 const COLORS = {
   primary: "hsl(var(--primary))",
@@ -114,6 +116,11 @@ export default function Analytics() {
       </div>
 
       {/* ═══════════════════════════════════════════
+          HEATMAP АКТИВНОСТИ
+      ═══════════════════════════════════════════ */}
+      <ActivityHeatmap />
+
+      {/* ═══════════════════════════════════════════
           ТАБЫ
       ═══════════════════════════════════════════ */}
       <div className="flex gap-1 p-1 rounded-lg bg-muted/40 border border-border/60 w-fit">
@@ -196,6 +203,7 @@ export default function Analytics() {
       {/* Задачи */}
       {activeTab === "tasks" && (
         <div className="space-y-5">
+          <PlanVsFactChart />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="rounded-xl border border-border/50 bg-card p-5">
               <h3 className="font-semibold mb-4">Выполнение задач по неделям</h3>

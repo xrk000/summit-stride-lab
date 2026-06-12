@@ -459,8 +459,9 @@ export default function Calendar() {
                       </div>
                       <p className="font-medium text-sm truncate">{event.title}</p>
                       {event.location && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1 truncate">
-                          <MapPin className="h-3 w-3 flex-shrink-0" />{event.location}
+                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                          <MapPin className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{event.location}</span>
                         </p>
                       )}
                       {event.description && (
@@ -503,8 +504,8 @@ export default function Calendar() {
                     </Badge>
                     {task.completed && <Badge variant="outline" className="text-xs bg-green-500/10 text-green-500">Выполнено</Badge>}
                   </div>
-                  <p className="font-medium text-sm">{task.title}</p>
-                  {task.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{task.description}</p>}
+                  <p className="font-medium text-sm break-all">{task.title}</p>
+                  {task.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 break-all">{task.description}</p>}
                 </div>
               ))}
             </div>
@@ -518,8 +519,8 @@ export default function Calendar() {
                   className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20 hover:bg-purple-500/10 transition-colors cursor-pointer"
                   onClick={() => setViewingItem({ type: 'habit', data: habit })}>
                   <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-500 border-purple-500/20 mb-1">Привычка</Badge>
-                  <p className="font-medium text-sm">{habit.name}</p>
-                  {habit.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{habit.description}</p>}
+                  <p className="font-medium text-sm break-all">{habit.name}</p>
+                  {habit.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 break-all">{habit.description}</p>}
                 </div>
               ))}
             </div>

@@ -440,9 +440,9 @@ export default function Tasks() {
 
                 {/* Контент */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
                     <span className={cn(
-                      "font-semibold text-sm",
+                      "font-semibold text-sm truncate flex-1 min-w-0",
                       task.completed && "line-through text-muted-foreground"
                     )}>
                       {task.title}
@@ -458,7 +458,7 @@ export default function Tasks() {
                   </div>
 
                   {task.description && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{task.description}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1 break-all">{task.description}</p>
                   )}
 
                   <div className="flex items-center gap-3 mt-1.5 flex-wrap">
@@ -476,10 +476,12 @@ export default function Tasks() {
                       const evId = taskEventsMap?.get(task.id);
                       const ev = evId ? events.find(e => e.id === evId) : null;
                       return ev ? (
-                        <span className="text-xs flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-                          <CalendarDays className="h-3 w-3" />
-                          {format(parseISO(ev.date), "d MMM", { locale: ru })}
-                          {ev.time ? ` · ${ev.time}` : ""} · {ev.title}
+                        <span className="text-xs flex items-center gap-1 text-emerald-600 dark:text-emerald-400 min-w-0">
+                          <CalendarDays className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">
+                            {format(parseISO(ev.date), "d MMM", { locale: ru })}
+                            {ev.time ? ` · ${ev.time}` : ""} · {ev.title}
+                          </span>
                         </span>
                       ) : null;
                     })()}
@@ -653,9 +655,9 @@ export default function Tasks() {
 
       {/* Детали задачи */}
       <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
-            <DialogTitle>{selectedTask?.title}</DialogTitle>
+            <DialogTitle className="break-all pr-6">{selectedTask?.title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -674,7 +676,9 @@ export default function Tasks() {
             )}
             <div>
               <Label>Описание</Label>
-              <p className="text-sm mt-1">{selectedTask?.description || "Нет описания"}</p>
+              <div className="mt-2 text-sm whitespace-pre-wrap break-words bg-muted/30 rounded-xl p-4 overflow-hidden leading-relaxed">
+                {selectedTask?.description || "Нет описания"}
+              </div>
             </div>
             <div>
               <Label>Статус</Label>
