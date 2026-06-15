@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export interface YandexIntegration {
   user_id: string;
+  ical_url: string | null;
   last_sync_at: string | null;
 }
 
@@ -11,7 +12,6 @@ export const useYandexCalendar = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Считаем "подключённым" если в таблице есть запись
   const { data: integration, isLoading } = useQuery({
     queryKey: ["yandexIntegration"],
     queryFn: async (): Promise<YandexIntegration | null> => {
@@ -19,7 +19,7 @@ export const useYandexCalendar = () => {
       if (!user) return null;
       const { data, error } = await (supabase as any)
         .from("yandex_integrations")
-        .select("user_id, last_sync_at")
+        .select("user_id, ical_url, last_sync_at")
         .eq("user_id", user.id)
         .maybeSingle();
       if (error) throw error;
@@ -27,7 +27,49 @@ export const useYandexCalendar = () => {
     },
   });
 
-  // Вызывается после успешного импорта .ics — создаёт/обновляет запись
+  // Сохранить ссылку iCal (вызывает Edge Function save-yandex-credentials)
+  const saveIcalUrl = useMutation({
+    mutationFn: async (ical_url: string) => {
+      const { data, error } = await supabase.functions.invoke("save-yandex-credentials", {
+        body: { ical_url },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: "Ссылка сохранена", description: "Яндекс Календарь подключён" });
+      queryClient.invalidateQueries({ queryKey: ["yandexIntegration"] });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Ошибка", description: e.message, variant: "destructive" });
+    },
+  });
+
+  // Синхронизация по ссылке (вызывает Edge Function yandex-calendar-sync)
+  const sync = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("yandex-calendar-sync", {
+        body: {},
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { success: boolean; imported: number; total: number };
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Синхронизация завершена",
+        description: `Импортировано событий: ${data.imported} из ${data.total}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["yandexIntegration"] });
+      queryClient.invalidateQueries({ queryKey: ["calendarEvents"] });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Ошибка синхронизации", description: e.message, variant: "destructive" });
+    },
+  });
+
+  // Вызывается после ручного импорта .ics файла (запасной способ)
   const markSynced = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -60,6 +102,10 @@ export const useYandexCalendar = () => {
     integration,
     isLoading,
     isConnected: !!integration,
+    saveIcalUrl: saveIcalUrl.mutate,
+    isSavingUrl: saveIcalUrl.isPending,
+    sync: sync.mutate,
+    isSyncing: sync.isPending,
     markSynced,
     disconnect: disconnect.mutate,
     isDisconnecting: disconnect.isPending,
