@@ -241,7 +241,7 @@ export default function Notes() {
       setNoteTags(tagsMap);
     };
     if (notes.length > 0) loadAllTags();
-  }, [notes, getEntityTags]);
+  }, [notes]);
 
   const replaceVars = (str: string) => {
     const now = new Date();
