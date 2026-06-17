@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Calendar, CheckSquare, StickyNote, TrendingUp, FolderKanban, LayoutDashboard, Search, BarChart3, User, LogOut, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -123,6 +124,7 @@ function SidebarContent({
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
@@ -139,6 +141,9 @@ export default function Layout() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        queryClient.clear();
+      }
       if (!session) {
         navigate("/auth");
       } else {
@@ -147,10 +152,11 @@ export default function Layout() {
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, queryClient]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    queryClient.clear();
     navigate("/auth");
   };
 

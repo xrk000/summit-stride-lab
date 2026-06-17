@@ -377,11 +377,7 @@ const Profile = () => {
           </div>
           <GoogleCalendarCard />
           <YandexCalendarCard />
-          <div className="rounded-xl border border-border/50 bg-card p-5">
-            <h3 className="font-semibold text-base mb-0.5">ВКонтакте</h3>
-            <p className="text-sm text-muted-foreground mb-4">Импорт избранных сообщений как задач и заметок</p>
-            <VkConnect />
-          </div>
+          <VkConnect />
         </div>
       )}
 
