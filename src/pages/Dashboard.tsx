@@ -7,11 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Calendar, CheckSquare, TrendingUp, Plus, AlertCircle,
   FileText, Flame, Star, AlertTriangle, CheckCheck,
   ArrowRight, Settings, GripVertical, Eye, EyeOff, Check as CheckIcon,
-  ChevronDown, Zap,
+  ChevronDown, Zap, FolderKanban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isHabitDueOnDate } from "@/lib/habitUtils";
@@ -22,7 +23,10 @@ import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useNotes } from "@/hooks/useNotes";
 import { useAllTaskTags } from "@/hooks/useAllTaskTags";
 import { useProfile } from "@/hooks/useProfile";
+import { useProjects } from "@/hooks/useProjects";
+import { useTags } from "@/hooks/useTags";
 import { TaskTagSelector } from "@/components/TaskTagSelector";
+import { TagInput } from "@/components/TagInput";
 import { format, isToday, isFuture, isPast, parseISO, addDays, subDays } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
@@ -218,6 +222,8 @@ export default function Dashboard() {
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [selectedNote, setSelectedNote] = useState<any>(null);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [newNoteTags, setNewNoteTags] = useState<any[]>([]);
   const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
 
   // ── Widget config ──
@@ -262,10 +268,12 @@ export default function Dashboard() {
 
   // ── Данные ──
   const { tasks, createTask, toggleTask } = useTasks();
+  const { projects } = useProjects();
+  const { addTagToEntity } = useTags();
   const { data: stats } = useUserStats();
   const { habits, habitEntries } = useHabits();
   const { events, createEvent } = useCalendarEvents();
-  const { notes, createNote } = useNotes();
+  const { notes, createNoteAsync } = useNotes();
   const { data: taskTagsMap } = useAllTaskTags();
   const { profile } = useProfile();
 
@@ -340,19 +348,37 @@ export default function Dashboard() {
   const handleAddTask = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    createTask({ title: fd.get("title") as string, description: fd.get("description") as string, priority: fd.get("priority") as string, due_date: format(today, 'yyyy-MM-dd'), completed: false, completed_at: null, tagIds: selectedTagIds });
-    setIsTaskDialogOpen(false); setSelectedTagIds([]); e.currentTarget.reset();
+    createTask({
+      title: fd.get("title") as string,
+      description: fd.get("description") as string,
+      priority: fd.get("priority") as string,
+      due_date: (fd.get("deadline") as string) || format(today, 'yyyy-MM-dd'),
+      completed: false,
+      completed_at: null,
+      tagIds: selectedTagIds,
+      projectId: selectedProjectId,
+    });
+    setIsTaskDialogOpen(false); setSelectedTagIds([]); setSelectedProjectId(null); e.currentTarget.reset();
   };
-  const handleAddNote = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddNote = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    createNote({ title: fd.get("title") as string, content: fd.get("content") as string });
-    setIsNoteDialogOpen(false); e.currentTarget.reset();
+    try {
+      const newNote = await createNoteAsync({ title: fd.get("title") as string, content: fd.get("content") as string });
+      if (newNote && newNoteTags.length > 0) {
+        for (const tag of newNoteTags) {
+          addTagToEntity({ entityType: 'note', entityId: (newNote as any).id, tagId: tag.id });
+        }
+      }
+    } catch {
+      return;
+    }
+    setIsNoteDialogOpen(false); setNewNoteTags([]); e.currentTarget.reset();
   };
   const handleAddEvent = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    createEvent({ title: fd.get("title") as string, date: fd.get("date") as string, time: fd.get("time") as string || null, description: null, type: "meeting" });
+    createEvent({ title: fd.get("title") as string, date: fd.get("date") as string, time: fd.get("time") as string || null, description: (fd.get("description") as string) || null, type: (fd.get("type") as string) || "meeting" });
     setIsEventDialogOpen(false); e.currentTarget.reset();
   };
 
@@ -714,7 +740,7 @@ export default function Dashboard() {
                     ? "bg-primary text-primary-foreground border-primary"
                     : "bg-purple-500/20 hover:bg-purple-500/40 border-purple-500/30 text-purple-300"
                 )}>
-                <Settings className={cn("h-4 w-4", isEditing && "animate-spin")} />
+                <Settings className="h-4 w-4" />
                 {isEditing ? "Завершить" : "Настроить"}
               </button>
             </div>
@@ -861,32 +887,89 @@ export default function Dashboard() {
       </DndContext>
 
       {/* ── Диалоги ── */}
-      <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
-        <DialogContent>
+      <Dialog open={isTaskDialogOpen} onOpenChange={(open) => {
+        setIsTaskDialogOpen(open);
+        if (!open) { setSelectedTagIds([]); setSelectedProjectId(null); }
+      }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Новая задача</DialogTitle></DialogHeader>
           <form onSubmit={handleAddTask} className="space-y-4">
-            <div><Label>Название</Label><Input name="title" required className="mt-1" /></div>
-            <div>
-              <Label>Приоритет</Label>
-              <select name="priority" className="w-full px-3 py-2 border border-border rounded-md bg-background mt-1" required>
-                <option value="high">Высокий</option>
-                <option value="medium">Средний</option>
-                <option value="low">Низкий</option>
-              </select>
+            <div className="space-y-2">
+              <Label htmlFor="title">Название</Label>
+              <Input id="title" name="title" required />
             </div>
-            <div><Label>Описание</Label><Textarea name="description" className="mt-1" /></div>
+            <div className="space-y-2">
+              <Label htmlFor="priority">Приоритет</Label>
+              <Select name="priority" defaultValue="medium">
+                <SelectTrigger><SelectValue placeholder="Выберите приоритет" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">Высокий</SelectItem>
+                  <SelectItem value="medium">Средний</SelectItem>
+                  <SelectItem value="low">Низкий</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deadline">Дедлайн</Label>
+              <Input id="deadline" name="deadline" type="date" defaultValue={format(today, 'yyyy-MM-dd')} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Описание</Label>
+              <Textarea id="description" name="description" />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <FolderKanban className="h-3.5 w-3.5 text-muted-foreground" />
+                Проект
+              </Label>
+              <Select
+                value={selectedProjectId ?? "none"}
+                onValueChange={v => setSelectedProjectId(v === "none" ? null : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Без проекта" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">Без проекта</span>
+                  </SelectItem>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <TaskTagSelector selectedTagIds={selectedTagIds} onTagsChange={setSelectedTagIds} />
             <Button type="submit" className="w-full">Создать задачу</Button>
           </form>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isNoteDialogOpen} onOpenChange={setIsNoteDialogOpen}>
-        <DialogContent>
+      <Dialog open={isNoteDialogOpen} onOpenChange={(open) => {
+        setIsNoteDialogOpen(open);
+        if (!open) setNewNoteTags([]);
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Новая заметка</DialogTitle></DialogHeader>
           <form onSubmit={handleAddNote} className="space-y-4">
-            <div><Label>Название</Label><Input name="title" required className="mt-1" /></div>
-            <div><Label>Содержание</Label><Textarea name="content" className="min-h-[120px] mt-1" /></div>
+            <div className="space-y-2">
+              <Label htmlFor="title">Название</Label>
+              <Input id="title" name="title" placeholder="Введите название заметки" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="content">Содержание</Label>
+              <Textarea id="content" name="content" placeholder="Напишите содержание заметки..." className="min-h-[280px] font-mono text-sm" />
+            </div>
+            <div className="space-y-2">
+              <Label>Теги</Label>
+              <TagInput
+                entityType="note"
+                entityId="temp"
+                selectedTags={newNoteTags}
+                isNewEntity
+                onTagsChange={setNewNoteTags}
+              />
+            </div>
             <Button type="submit" className="w-full">Создать заметку</Button>
           </form>
         </DialogContent>
@@ -896,9 +979,33 @@ export default function Dashboard() {
         <DialogContent>
           <DialogHeader><DialogTitle>Новое событие</DialogTitle></DialogHeader>
           <form onSubmit={handleAddEvent} className="space-y-4">
-            <div><Label>Название</Label><Input name="title" required className="mt-1" /></div>
-            <div><Label>Дата</Label><Input name="date" type="date" defaultValue={format(today, 'yyyy-MM-dd')} required className="mt-1" /></div>
-            <div><Label>Время</Label><Input name="time" type="time" className="mt-1" /></div>
+            <div className="space-y-2">
+              <Label htmlFor="title">Название</Label>
+              <Input id="title" name="title" placeholder="Введите название события" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="type">Тип</Label>
+              <Select name="type" defaultValue="meeting">
+                <SelectTrigger><SelectValue placeholder="Выберите тип события" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="meeting">Встреча</SelectItem>
+                  <SelectItem value="reminder">Напоминание</SelectItem>
+                  <SelectItem value="note">Заметка</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="date">Дата</Label>
+              <Input id="date" name="date" type="date" defaultValue={format(today, 'yyyy-MM-dd')} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="time">Время</Label>
+              <Input id="time" name="time" type="time" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Описание</Label>
+              <Textarea id="description" name="description" />
+            </div>
             <Button type="submit" className="w-full">Создать событие</Button>
           </form>
         </DialogContent>

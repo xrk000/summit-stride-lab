@@ -188,6 +188,7 @@ export const useGoogleCalendar = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Удаляем интеграцию
       const { error } = await supabase
         .from("google_integrations")
         .delete()
@@ -200,6 +201,16 @@ export const useGoogleCalendar = () => {
         .delete()
         .eq("user_id", user.id)
         .eq("source", "google");
+
+      // 👇 Отвязываем Google identity, чтобы повторная привязка работала
+      const googleIdentity = user.identities?.find(i => i.provider === "google");
+      if (googleIdentity) {
+        const { error: unlinkErr } = await supabase.auth.unlinkIdentity(googleIdentity);
+        if (unlinkErr) {
+          // не роняем весь disconnect, но логируем
+          console.error("unlinkIdentity error:", unlinkErr);
+        }
+      }
     },
     onSuccess: () => {
       toast({ title: "Google Calendar отключён" });

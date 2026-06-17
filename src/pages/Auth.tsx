@@ -189,7 +189,7 @@ const Auth = () => {
             ))}
           </div>
 
-          <p className="text-sm text-slate-400 dark:text-white/20">© 2025 Momentum</p>
+          <p className="text-sm text-slate-400 dark:text-white/20">© 2026 Momentum</p>
         </div>
 
         {/* ── Карточка формы ── */}
