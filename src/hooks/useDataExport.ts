@@ -8,7 +8,8 @@ export const useDataExport = () => {
 
   const exportToCSV = async (dataType: "all" | "tasks" | "notes" | "habits" | "projects" | "calendar") => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       let csvContent = "";
@@ -122,7 +123,8 @@ export const useDataExport = () => {
 
   const exportToPDF = async (includeStats: boolean = false) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       const doc = new jsPDF();

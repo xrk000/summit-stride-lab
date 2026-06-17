@@ -5,7 +5,8 @@ export const useAllProjectTags = () => {
     return useQuery({
         queryKey: ["allProjectTags"],
         queryFn: async () => {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user;
             if (!user) return new Map();
 
             const { data, error } = await supabase

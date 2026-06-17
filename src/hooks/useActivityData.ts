@@ -6,7 +6,8 @@ export const useActivityData = (days: number = 7) => {
   return useQuery({
     queryKey: ["activityData", days],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) return [];
 
       const endDate = new Date();

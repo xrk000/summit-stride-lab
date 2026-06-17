@@ -18,7 +18,8 @@ export const useNotes = () => {
   const { data: notes, isLoading } = useQuery({
     queryKey: ["notes"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase
@@ -34,7 +35,8 @@ export const useNotes = () => {
 
   const createNote = useMutation({
     mutationFn: async (newNote: Omit<Note, "id" | "user_id" | "created_at" | "updated_at">) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase

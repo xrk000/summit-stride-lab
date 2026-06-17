@@ -141,7 +141,6 @@ export const useGoogleCalendar = () => {
       provider: "google",
       options: {
         scopes: GOOGLE_CALENDAR_SCOPE,
-        // Возвращаемся на ту же страницу откуда нажали
         redirectTo: `${window.location.origin}/auth/callback`,
         queryParams: {
           access_type: "offline",
@@ -153,11 +152,7 @@ export const useGoogleCalendar = () => {
     if (error) {
       sessionStorage.removeItem("google_calendar_connecting");
       setIsConnecting(false);
-      toast({
-        title: "Ошибка",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Ошибка", description: error.message, variant: "destructive" });
     }
   };
 

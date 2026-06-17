@@ -291,7 +291,7 @@ export default function Tasks() {
               <CheckSquare className="h-4 w-4" />
               Управление задачами
             </p>
-            <h1 className="text-4xl lg:text-5xl font-bold text-white">Задачи</h1>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white">Задачи</h1>
             <p className="text-white/40 text-xs mt-2">
               {format(new Date(), "EEEE, d MMMM yyyy", { locale: ru })}
             </p>

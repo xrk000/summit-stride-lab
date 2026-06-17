@@ -112,18 +112,18 @@ export const YandexCalendarPanel = () => {
     <Card className={isConnected ? "border-orange-500/30 bg-orange-500/5" : "border-dashed"}>
       <CardContent className="p-4 space-y-4">
         {/* Шапка */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm border border-border flex-shrink-0">
               <YandexIcon />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="font-medium text-sm flex items-center gap-2">
                 Яндекс Календарь
-                {isConnected && <span className="inline-block w-2 h-2 rounded-full bg-green-500" />}
+                {isConnected && <span className="inline-block w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />}
               </p>
               {isConnected && integration?.last_sync_at ? (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground truncate">
                   Синхронизировано: {format(parseISO(integration.last_sync_at), "d MMM, HH:mm", { locale: ru })}
                 </p>
               ) : (
@@ -135,7 +135,7 @@ export const YandexCalendarPanel = () => {
           </div>
 
           {isConnected && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 gap-1.5 py-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                 Подключено

@@ -22,7 +22,8 @@ export const useTasks = () => {
   const { data: tasks, isLoading } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase
@@ -38,7 +39,8 @@ export const useTasks = () => {
 
   const createTask = useMutation({
     mutationFn: async ({ tagIds, projectId, eventId, ...newTask }: Omit<Task, "id" | "user_id" | "created_at" | "updated_at"> & { tagIds?: string[]; projectId?: string | null; eventId?: string | null }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase

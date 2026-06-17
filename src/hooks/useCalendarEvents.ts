@@ -24,7 +24,8 @@ export const useCalendarEvents = () => {
   const { data: events, isLoading } = useQuery({
     queryKey: ["calendarEvents"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase
@@ -40,7 +41,8 @@ export const useCalendarEvents = () => {
 
   const createEvent = useMutation({
     mutationFn: async ({ taskIds, ...newEvent }: Omit<CalendarEvent, "id" | "user_id" | "created_at" | "updated_at" | "source" | "google_event_id"> & { taskIds?: string[] }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase

@@ -229,7 +229,7 @@ export default function Calendar() {
               <CalendarIcon className="h-4 w-4" />
               Расписание и события
             </p>
-            <h1 className="text-4xl lg:text-5xl font-bold text-white">Календарь</h1>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white">Календарь</h1>
             <p className="text-white/40 text-xs mt-2">
               {format(currentDate, "LLLL yyyy", { locale: ru })}
             </p>
@@ -364,14 +364,14 @@ export default function Calendar() {
           </div>
 
           {/* Названия дней */}
-          <div className="grid grid-cols-7 gap-2 mb-2">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
             {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map(day => (
-              <div key={day} className="text-center text-sm font-medium text-muted-foreground">{day}</div>
+              <div key={day} className="text-center text-xs sm:text-sm font-medium text-muted-foreground">{day}</div>
             ))}
           </div>
 
           {/* Дни */}
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
             {daysInMonth.map(day => {
               const dayEvents = getEventsForDay(day);
               const dayTasks = getTasksForDay(day);
@@ -389,7 +389,7 @@ export default function Calendar() {
                   key={day.toString()}
                   onClick={() => setSelectedDay(dayStr)}
                   className={cn(
-                    "aspect-square p-2 rounded-lg border transition-colors",
+                    "aspect-square p-1 sm:p-2 rounded-lg border transition-colors",
                     getHeatmapClass(day),
                     isSelected
                       ? "bg-primary text-primary-foreground border-primary"
@@ -399,7 +399,7 @@ export default function Calendar() {
                     !isSameMonth(day, currentDate) && "opacity-50"
                   )}
                 >
-                  <div className="text-sm font-medium">{format(day, 'd')}</div>
+                  <div className="text-xs sm:text-sm font-medium">{format(day, 'd')}</div>
                   {hasItems && (
                     <div className="flex gap-1 mt-1 justify-center flex-wrap">
                       {manualEvents.slice(0, 1).map((_, i) => <div key={`m-${i}`} className="w-1.5 h-1.5 rounded-full bg-blue-500" />)}
@@ -542,17 +542,17 @@ export default function Calendar() {
       ═══════════════════════════════════════════ */}
       <div className="space-y-3">
         <div className={cn(
-          "flex items-center justify-between p-4 rounded-xl border transition-all",
+          "flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border transition-all",
           isConnected ? "border-blue-500/30 bg-blue-500/5" : "border-border/60 bg-muted/20 border-dashed"
         )}>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm border border-border flex-shrink-0">
               <GoogleIcon />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="font-medium text-sm flex items-center gap-2">
                 Google Calendar
-                {isConnected && <span className="inline-block w-2 h-2 rounded-full bg-green-500" />}
+                {isConnected && <span className="inline-block w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />}
               </p>
               {isConnected && integration ? (
                 <p className="text-xs text-muted-foreground">
@@ -566,7 +566,7 @@ export default function Calendar() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {isConnected ? (
               <>
                 <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 gap-1.5 py-1">

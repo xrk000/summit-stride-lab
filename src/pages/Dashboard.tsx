@@ -101,7 +101,6 @@ function SortableWidget({
     useSortable({ id: config.id, disabled: !isEditing });
 
   const style: React.CSSProperties = {
-    gridColumn: `span ${config.size}`,
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.25 : 1,
@@ -109,11 +108,17 @@ function SortableWidget({
 
   if (!config.visible && !isEditing) return null;
 
+  const spanClasses: Record<WidgetSize, string> = {
+    1: "col-span-1",
+    2: "col-span-1 sm:col-span-2",
+    3: "col-span-1 sm:col-span-2 lg:col-span-3",
+  };
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={cn("flex flex-col", !config.visible && isEditing && "opacity-40")}
+      className={cn("flex flex-col", spanClasses[config.size], !config.visible && isEditing && "opacity-40")}
     >
       {isEditing && (
         <div className="flex items-center gap-2 px-3 py-1.5 mb-1 rounded-lg bg-primary/10 border border-primary/30 border-dashed select-none flex-shrink-0">
@@ -187,16 +192,16 @@ function ProductivityRing({ score }: { score: number }) {
   const color = score >= 80 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
   const label = score >= 80 ? "Отлично!" : score >= 50 ? "Хорошо" : "Давай!";
   return (
-    <div className="relative flex items-center justify-center w-28 h-28">
-      <svg width="112" height="112" className="-rotate-90">
+    <div className="relative flex items-center justify-center w-20 h-20 sm:w-28 sm:h-28">
+      <svg viewBox="0 0 112 112" className="w-full h-full -rotate-90">
         <circle cx="56" cy="56" r={r} fill="none" stroke="currentColor" strokeWidth="8" className="text-white/20" />
         <circle cx="56" cy="56" r={r} fill="none" stroke={color} strokeWidth="8"
           strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
           style={{ transition: "stroke-dashoffset 1s ease", filter: `drop-shadow(0 0 6px ${color})` }} />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <span className="text-2xl font-bold text-white">{score}</span>
-        <span className="text-xs text-white/70">{label}</span>
+        <span className="text-lg sm:text-2xl font-bold text-white">{score}</span>
+        <span className="text-[10px] sm:text-xs text-white/70">{label}</span>
       </div>
     </div>
   );
@@ -614,7 +619,7 @@ export default function Dashboard() {
                   <p className="text-sm">Заметок пока нет</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {recentNotes.map(note => {
                     const fl = note.content?.split('\n')[0] || "";
                     const emoji = fl.match(/^\p{Emoji}/u)?.[0] || "📝";
@@ -652,23 +657,23 @@ export default function Dashboard() {
     <div className="p-6 space-y-6">
 
       {/* ── Hero ── */}
-      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 via-primary/80 to-slate-900 p-8 min-h-[200px]">
+      <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900 via-primary/80 to-slate-900 p-4 sm:p-6 lg:p-8 sm:min-h-[200px]">
         <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
         <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
 
-        <div className="relative flex flex-col lg:flex-row lg:items-center gap-8">
+        <div className="relative flex flex-col lg:flex-row lg:items-center gap-4 sm:gap-6 lg:gap-8">
           <div className="flex-1 min-w-0">
-            <p className="text-white/60 text-sm mb-2 flex items-center gap-1.5">
+            <p className="text-white/60 text-sm mb-1.5 sm:mb-2 flex items-center gap-1.5">
               <span>{greeting.emoji}</span><span>{greeting.text}</span>
             </p>
-            <h1 className="text-4xl lg:text-5xl font-bold text-white mb-1 truncate">{displayName}!</h1>
-            <p className="text-white/50 text-sm mb-4">{greeting.sub}</p>
-            <p className="text-white/70 text-sm italic max-w-md leading-relaxed">«{quote}»</p>
-            <p className="text-white/40 text-xs mt-4">{format(today, "EEEE, d MMMM yyyy", { locale: ru })}</p>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white mb-1 truncate">{displayName}!</h1>
+            <p className="text-white/50 text-sm mb-2 sm:mb-4">{greeting.sub}</p>
+            <p className="hidden sm:block text-white/70 text-sm italic max-w-md leading-relaxed">«{quote}»</p>
+            <p className="text-white/40 text-xs mt-2 sm:mt-4">{format(today, "EEEE, d MMMM yyyy", { locale: ru })}</p>
           </div>
 
-          <div className="flex items-center gap-8 flex-shrink-0">
-            <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-4 sm:gap-8 flex-shrink-0">
+            <div className="flex flex-col items-center gap-1 sm:gap-2">
               <ProductivityRing score={productivityScore} />
               <p className="text-white/50 text-xs text-center">Продуктивность</p>
             </div>
@@ -690,27 +695,29 @@ export default function Dashboard() {
           </div>
 
           <div className="flex flex-col gap-2 flex-shrink-0">
-            <p className="text-white/40 text-xs uppercase tracking-wider mb-1">Быстро создать</p>
-            {[
-              { icon: CheckSquare, label: "Задача", color: "bg-blue-500/20 hover:bg-blue-500/40 border-blue-500/30 text-blue-300", open: () => setIsTaskDialogOpen(true) },
-              { icon: FileText, label: "Заметка", color: "bg-amber-500/20 hover:bg-amber-500/40 border-amber-500/30 text-amber-300", open: () => setIsNoteDialogOpen(true) },
-              { icon: Calendar, label: "Событие", color: "bg-emerald-500/20 hover:bg-emerald-500/40 border-emerald-500/30 text-emerald-300", open: () => setIsEventDialogOpen(true) },
-            ].map(a => (
-              <button key={a.label} onClick={a.open}
-                className={cn("flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all text-sm font-medium", a.color)}>
-                <a.icon className="h-4 w-4" />{a.label}
+            <p className="hidden sm:block text-white/40 text-xs uppercase tracking-wider mb-1">Быстро создать</p>
+            <div className="flex flex-row flex-wrap sm:flex-col gap-2">
+              {[
+                { icon: CheckSquare, label: "Задача", color: "bg-blue-500/20 hover:bg-blue-500/40 border-blue-500/30 text-blue-300", open: () => setIsTaskDialogOpen(true) },
+                { icon: FileText, label: "Заметка", color: "bg-amber-500/20 hover:bg-amber-500/40 border-amber-500/30 text-amber-300", open: () => setIsNoteDialogOpen(true) },
+                { icon: Calendar, label: "Событие", color: "bg-emerald-500/20 hover:bg-emerald-500/40 border-emerald-500/30 text-emerald-300", open: () => setIsEventDialogOpen(true) },
+              ].map(a => (
+                <button key={a.label} onClick={a.open}
+                  className={cn("flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border transition-all text-sm font-medium", a.color)}>
+                  <a.icon className="h-4 w-4" />{a.label}
+                </button>
+              ))}
+              <button onClick={() => setIsEditing(v => !v)}
+                className={cn(
+                  "flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border transition-all text-sm font-medium",
+                  isEditing
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-purple-500/20 hover:bg-purple-500/40 border-purple-500/30 text-purple-300"
+                )}>
+                <Settings className={cn("h-4 w-4", isEditing && "animate-spin")} />
+                {isEditing ? "Завершить" : "Настроить"}
               </button>
-            ))}
-            <button onClick={() => setIsEditing(v => !v)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all text-sm font-medium mt-1",
-                isEditing
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-purple-500/20 hover:bg-purple-500/40 border-purple-500/30 text-purple-300"
-              )}>
-              <Settings className={cn("h-4 w-4", isEditing && "animate-spin")} />
-              {isEditing ? "Завершить" : "Настроить"}
-            </button>
+            </div>
           </div>
         </div>
       </div>
@@ -752,7 +759,7 @@ export default function Dashboard() {
         </button>
 
         {isBriefOpen && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4 pb-4 pt-3 border-t border-border/40">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 px-4 pb-4 pt-3 border-t border-border/40">
             <div className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Задачи</p>
               {todayTasks.length === 0 ? (
@@ -825,7 +832,7 @@ export default function Dashboard() {
         onDragEnd={handleDragEnd}
       >
         <SortableContext items={widgets.map(w => w.id)} strategy={rectSortingStrategy}>
-          <div className="grid grid-cols-3 gap-4 items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
             {widgets.map(widget => (
               <SortableWidget
                 key={widget.id}

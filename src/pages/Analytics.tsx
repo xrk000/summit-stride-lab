@@ -46,7 +46,7 @@ export default function Analytics() {
             <p className="text-white/60 text-sm mb-2 flex items-center gap-1.5">
               <BarChart2 className="h-4 w-4" />Продуктивность и прогресс
             </p>
-            <h1 className="text-4xl lg:text-5xl font-bold text-white">Аналитика</h1>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white">Аналитика</h1>
             <p className="text-white/40 text-sm mt-2">Нет данных для отображения</p>
           </div>
         </div>
@@ -69,7 +69,7 @@ export default function Analytics() {
             <p className="text-white/60 text-sm mb-2 flex items-center gap-1.5">
               <BarChart2 className="h-4 w-4" />Продуктивность и прогресс
             </p>
-            <h1 className="text-4xl lg:text-5xl font-bold text-white">Аналитика</h1>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white">Аналитика</h1>
             <p className="text-white/40 text-xs mt-2">Обзор вашей активности</p>
           </div>
 
@@ -150,7 +150,7 @@ export default function Analytics() {
 
       {/* Проекты */}
       {activeTab === "projects" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="rounded-xl border border-border/50 bg-card p-5">
             <h3 className="font-semibold mb-4">Задачи по проектам</h3>
             {analytics.projectData.length > 0 ? (
@@ -204,7 +204,7 @@ export default function Analytics() {
       {activeTab === "tasks" && (
         <div className="space-y-5">
           <PlanVsFactChart />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="rounded-xl border border-border/50 bg-card p-5">
               <h3 className="font-semibold mb-4">Выполнение задач по неделям</h3>
               <ResponsiveContainer width="100%" height={300}>

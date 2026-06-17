@@ -28,7 +28,8 @@ export const useHabits = () => {
   const { data: habits, isLoading } = useQuery({
     queryKey: ["habits"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase
@@ -45,7 +46,8 @@ export const useHabits = () => {
   const { data: habitEntries } = useQuery({
     queryKey: ["habitEntries"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase
@@ -60,7 +62,8 @@ export const useHabits = () => {
 
   const createHabit = useMutation({
     mutationFn: async (newHabit: Omit<Habit, "id" | "user_id" | "created_at" | "updated_at"> & { tagIds?: string[] }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       const { tagIds, ...habitData } = newHabit;
@@ -163,7 +166,8 @@ export const useHabits = () => {
 
   const toggleHabitEntry = useMutation({
     mutationFn: async ({ habitId, date }: { habitId: string; date: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       // Проверяем, есть ли уже запись

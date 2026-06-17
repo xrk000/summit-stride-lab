@@ -19,7 +19,8 @@ export const useNoteTemplates = () => {
     const { data: templates, isLoading } = useQuery({
         queryKey: ["note-templates"],
         queryFn: async () => {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user;
             if (!user) throw new Error("Not authenticated");
 
             const { data, error } = await supabase
@@ -36,7 +37,8 @@ export const useNoteTemplates = () => {
     // Создать шаблон
     const createTemplate = useMutation({
         mutationFn: async (template: Omit<NoteTemplate, "id" | "user_id" | "created_at">) => {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { session } } = await supabase.auth.getSession();
+            const user = session?.user;
             if (!user) throw new Error("Not authenticated");
 
             const { data, error } = await supabase

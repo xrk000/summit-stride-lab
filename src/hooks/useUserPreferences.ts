@@ -35,7 +35,8 @@ export const useUserPreferences = () => {
   const { data: preferences, isLoading } = useQuery({
     queryKey: ["userPreferences"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       const { data, error } = await supabase
@@ -51,7 +52,8 @@ export const useUserPreferences = () => {
 
   const updatePreferences = useMutation({
     mutationFn: async (newPreferences: UserPreferences) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) throw new Error("Not authenticated");
 
       const { data: existing } = await supabase

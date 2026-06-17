@@ -176,7 +176,7 @@ export default function Habits() {
               <Flame className="h-4 w-4" />
               Ежедневные привычки
             </p>
-            <h1 className="text-4xl lg:text-5xl font-bold text-white">Привычки</h1>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white">Привычки</h1>
             <p className="text-white/40 text-xs mt-2">
               {format(new Date(), "EEEE, d MMMM yyyy", { locale: ru })}
             </p>
@@ -329,7 +329,7 @@ export default function Habits() {
                 </div>
 
                 {/* Сетка дней */}
-                <div className="grid grid-cols-7 gap-2">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2">
                   {weekDays.map((date, index) => {
                     const shouldShow = shouldShowHabitForDate(habit, date);
                     const completed = isHabitCompleted(habit.id, date);
