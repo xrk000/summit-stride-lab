@@ -284,6 +284,12 @@ export default function Dashboard() {
   const displayName = profile?.username || (profile as any)?.email?.split('@')[0] || "Пользователь";
   const todayTasks = tasks.filter(t => t.due_date && isToday(parseISO(t.due_date)));
   const todayCompleted = todayTasks.filter(t => t.completed).length;
+  const todayStr = format(today, 'yyyy-MM-dd');
+  const todayDueHabits = habits.filter(h => isHabitDueOnDate(h, today));
+  const todayHabitsCompleted = todayDueHabits.filter(h =>
+    habitEntries.some(e => e.habit_id === h.id && e.date === todayStr && e.completed)
+  ).length;
+  const todayEventsList = events.filter(e => e.date === todayStr);
 
   const urgentTasks = tasks.filter(t => {
     if (t.completed || !t.due_date) return false;
@@ -325,23 +331,19 @@ export default function Dashboard() {
   }, [tasks, focusTaskId]);
 
   const productivityScore = useMemo(() => {
-    let s = 0;
-    if (todayTasks.length > 0) s += Math.round((todayCompleted / todayTasks.length) * 40);
-    s += Math.round(avgHabit * 0.4);
-    if (upcomingEvents.some(e => isToday(parseISO(e.date)))) s += 20;
-    return Math.min(s, 100);
-  }, [todayTasks, todayCompleted, avgHabit, upcomingEvents]);
+    // Считаем только то, что реально запланировано на сегодня — задачи и привычки.
+    // Если ничего не запланировано, день не "проваленный", а нейтральный.
+    const categories: number[] = [];
+    if (todayTasks.length > 0) categories.push((todayCompleted / todayTasks.length) * 100);
+    if (todayDueHabits.length > 0) categories.push((todayHabitsCompleted / todayDueHabits.length) * 100);
+    if (categories.length === 0) return 100;
+    return Math.round(categories.reduce((a, b) => a + b, 0) / categories.length);
+  }, [todayTasks, todayCompleted, todayDueHabits, todayHabitsCompleted]);
 
   const recentNotes = [...notes]
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
     .slice(0, 3);
 
-  const todayStr = format(today, 'yyyy-MM-dd');
-  const todayDueHabits = habits.filter(h => isHabitDueOnDate(h, today));
-  const todayHabitsCompleted = todayDueHabits.filter(h =>
-    habitEntries.some(e => e.habit_id === h.id && e.date === todayStr && e.completed)
-  ).length;
-  const todayEventsList = events.filter(e => e.date === todayStr);
   const nextTodayEvent = todayEventsList.find(e => e.time);
 
   // ── Обработчики форм ──

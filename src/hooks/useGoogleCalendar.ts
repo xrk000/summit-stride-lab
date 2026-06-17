@@ -18,7 +18,6 @@ export const useGoogleCalendar = () => {
   const queryClient = useQueryClient();
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // ─── Статус подключения из БД ───────────────────────────────────────────────
   const { data: integration, isLoading } = useQuery({
     queryKey: ["googleIntegration"],
     queryFn: async (): Promise<GoogleIntegration | null> => {
@@ -40,7 +39,6 @@ export const useGoogleCalendar = () => {
     },
   });
 
-  // ─── Сохранение токенов и первая синхронизация ──────────────────────────────
   const saveTokensAndSync = useCallback(async (
     providerToken: string,
     refreshToken: string | null,
@@ -84,9 +82,6 @@ export const useGoogleCalendar = () => {
     }
   }, [queryClient, toast]);
 
-  // ─── ОСНОВНОЙ ФИЧ: читаем токен из сессии при монтировании ─────────────────
-  // onAuthStateChange ненадёжен при full-page redirect — событие может
-  // сработать до монтирования компонента. Поэтому проверяем getSession() сами.
   useEffect(() => {
     if (sessionStorage.getItem("google_calendar_connecting") !== "1") return;
 
@@ -98,7 +93,7 @@ export const useGoogleCalendar = () => {
       const refreshToken = session.provider_refresh_token as string | null;
       const expiresIn = session.expires_in as number | null;
 
-      if (!providerToken) return; // запасной вариант — onAuthStateChange
+      if (!providerToken) return;
 
       sessionStorage.removeItem("google_calendar_connecting");
       await saveTokensAndSync(providerToken, refreshToken, expiresIn);
@@ -107,7 +102,6 @@ export const useGoogleCalendar = () => {
     captureTokenFromSession();
   }, [saveTokensAndSync]);
 
-  // ─── Запасной вариант: onAuthStateChange ────────────────────────────────────
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -132,7 +126,6 @@ export const useGoogleCalendar = () => {
     return () => subscription.unsubscribe();
   }, [saveTokensAndSync]);
 
-  // ─── Подключить ─────────────────────────────────────────────────────────────
   const connect = async () => {
     setIsConnecting(true);
     sessionStorage.setItem("google_calendar_connecting", "1");
@@ -156,19 +149,19 @@ export const useGoogleCalendar = () => {
     }
   };
 
-  // ─── Ручная синхронизация ────────────────────────────────────────────────────
   const sync = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke(
-        "google-calendar-sync"
-      );
+      const { data, error } = await supabase.functions.invoke("google-calendar-sync");
       if (error) throw error;
-      return data as { imported: number; total: number };
+      return data as { imported: number; total: number; skipped?: number };
     },
     onSuccess: (data) => {
+      const skipped = data.skipped || 0;
       toast({
         title: "Синхронизация завершена",
-        description: `Импортировано событий: ${data.imported} из ${data.total}`,
+        description: skipped > 0
+          ? `Импортировано ${data.imported} из ${data.total} (${skipped} ваших изменений сохранено)`
+          : `Импортировано событий: ${data.imported} из ${data.total}`,
       });
       queryClient.invalidateQueries({ queryKey: ["calendarEvents"] });
       queryClient.invalidateQueries({ queryKey: ["googleIntegration"] });
@@ -182,32 +175,30 @@ export const useGoogleCalendar = () => {
     },
   });
 
-  // ─── Отключить ───────────────────────────────────────────────────────────────
   const disconnect = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Удаляем интеграцию
       const { error } = await supabase
         .from("google_integrations")
         .delete()
         .eq("user_id", user.id);
       if (error) throw error;
 
-      // Удаляем импортированные Google-события
-      await supabase
+      // Удаляем google-события, КРОМЕ отредактированных пользователем
+      await (supabase as any)
         .from("calendar_events")
         .delete()
         .eq("user_id", user.id)
-        .eq("source", "google");
+        .eq("source", "google")
+        .eq("is_modified", false);
 
-      // 👇 Отвязываем Google identity, чтобы повторная привязка работала
+      // Отвязываем Google identity, чтобы повторная привязка работала
       const googleIdentity = user.identities?.find(i => i.provider === "google");
       if (googleIdentity) {
         const { error: unlinkErr } = await supabase.auth.unlinkIdentity(googleIdentity);
         if (unlinkErr) {
-          // не роняем весь disconnect, но логируем
           console.error("unlinkIdentity error:", unlinkErr);
         }
       }

@@ -78,7 +78,18 @@ export default function Calendar() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     if (editingEvent) {
-      updateEvent({ id: editingEvent.id, title: formData.get("title") as string, type: formData.get("type") as string, date: formData.get("date") as string, time: formData.get("time") as string, description: formData.get("description") as string, taskIds: dialogTaskIds });
+      const isImported = editingEvent.source === "google" || editingEvent.source === "yandex";
+      updateEvent({
+        id: editingEvent.id,
+        title: formData.get("title") as string,
+        type: formData.get("type") as string,
+        date: formData.get("date") as string,
+        time: formData.get("time") as string,
+        description: formData.get("description") as string,
+        taskIds: dialogTaskIds,
+        // импортированное событие помечаем как изменённое — синхронизация его не перезапишет
+        ...(isImported ? { is_modified: true } : {}),
+      });
       setEditingEvent(null);
     } else {
       createEvent({ title: formData.get("title") as string, type: formData.get("type") as string, date: formData.get("date") as string, time: formData.get("time") as string, description: formData.get("description") as string, taskIds: dialogTaskIds });
@@ -475,16 +486,14 @@ export default function Calendar() {
                         </a>
                       )}
                     </div>
-                    {!isExternalEvent(event) && (
-                      <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditEvent(event)}>
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteEvent(event.id)}>
-                          <Trash2 className="h-3 w-3 text-destructive" />
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEditEvent(event)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteEvent(event.id)}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -596,6 +605,12 @@ export default function Calendar() {
           <DialogHeader>
             <DialogTitle>{editingEvent ? "Редактировать событие" : "Новое событие"}</DialogTitle>
           </DialogHeader>
+          {editingEvent && isExternalEvent(editingEvent) && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5 -mt-2">
+              {editingEvent.source === 'google' ? <GoogleIcon /> : <YandexIcon />}
+              После сохранения событие не будет перезаписано при синхронизации.
+            </p>
+          )}
           <form onSubmit={handleAddEvent} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title">Название</Label>
@@ -673,8 +688,8 @@ export default function Calendar() {
                             <span className={cn(
                               "text-xs px-1.5 py-0.5 rounded flex-shrink-0",
                               task.priority === 'high' ? "bg-red-500/10 text-red-500" :
-                              task.priority === 'medium' ? "bg-amber-500/10 text-amber-500" :
-                              "bg-green-500/10 text-green-500"
+                                task.priority === 'medium' ? "bg-amber-500/10 text-amber-500" :
+                                  "bg-green-500/10 text-green-500"
                             )}>
                               {task.priority === 'high' ? 'Высок.' : task.priority === 'medium' ? 'Средн.' : 'Низк.'}
                             </span>
@@ -783,7 +798,7 @@ export default function Calendar() {
                   <RefreshCcw className="h-3.5 w-3.5" />Повторяющееся событие
                 </div>
               )}
-              {viewingItem.type === 'event' && !isExternalEvent(viewingItem.data) && viewingItem.data.type && (
+              {viewingItem.type === 'event' && viewingItem.data.type && !['google', 'yandex'].includes(viewingItem.data.type) && (
                 <div>
                   <Label className="text-sm font-semibold">Тип</Label>
                   <p className="text-foreground mt-1">
@@ -845,8 +860,8 @@ export default function Calendar() {
                           <span className={cn(
                             "text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0",
                             task.priority === 'high' ? "bg-red-500/10 text-red-500" :
-                            task.priority === 'medium' ? "bg-amber-500/10 text-amber-500" :
-                            "bg-green-500/10 text-green-500"
+                              task.priority === 'medium' ? "bg-amber-500/10 text-amber-500" :
+                                "bg-green-500/10 text-green-500"
                           )}>
                             {task.priority === 'high' ? 'Высокий' : task.priority === 'medium' ? 'Средний' : 'Низкий'}
                           </span>
@@ -857,10 +872,24 @@ export default function Calendar() {
                 </div>
               )}
               {viewingItem.type === 'event' && isExternalEvent(viewingItem.data) && (
-                <p className="text-xs text-muted-foreground border-t border-border pt-3 flex items-center gap-1.5">
-                  {viewingItem.data.source === 'google' ? <GoogleIcon /> : <YandexIcon />}
-                  Импортировано из {viewingItem.data.source === 'google' ? 'Google Calendar' : 'Яндекс Календаря'}. Редактирование доступно только там.
-                </p>
+                <div className="border-t border-border pt-3 space-y-2">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    {viewingItem.data.source === 'google' ? <GoogleIcon /> : <YandexIcon />}
+                    Импортировано из {viewingItem.data.source === 'google' ? 'Google Calendar' : 'Яндекс Календаря'}.
+                    {viewingItem.data.is_modified
+                      ? ' Изменено вами — синхронизация не перезапишет.'
+                      : ' Вы можете отредактировать его — оно не перезапишется при синхронизации.'}
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => { handleEditEvent(viewingItem.data); setViewingItem(null); }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Редактировать
+                  </Button>
+                </div>
               )}
             </div>
           )}

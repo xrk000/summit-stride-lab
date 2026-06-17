@@ -27,7 +27,6 @@ export const useYandexCalendar = () => {
     },
   });
 
-  // Сохранить ссылку iCal (вызывает Edge Function save-yandex-credentials)
   const saveIcalUrl = useMutation({
     mutationFn: async (ical_url: string) => {
       const { data, error } = await supabase.functions.invoke("save-yandex-credentials", {
@@ -46,7 +45,6 @@ export const useYandexCalendar = () => {
     },
   });
 
-  // Синхронизация по ссылке (вызывает Edge Function yandex-calendar-sync)
   const sync = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("yandex-calendar-sync", {
@@ -54,12 +52,15 @@ export const useYandexCalendar = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { success: boolean; imported: number; total: number };
+      return data as { success: boolean; imported: number; total: number; skipped?: number };
     },
     onSuccess: (data) => {
+      const skipped = data.skipped || 0;
       toast({
         title: "Синхронизация завершена",
-        description: `Импортировано событий: ${data.imported} из ${data.total}`,
+        description: skipped > 0
+          ? `Импортировано ${data.imported} из ${data.total} (${skipped} ваших изменений сохранено)`
+          : `Импортировано событий: ${data.imported} из ${data.total}`,
       });
       queryClient.invalidateQueries({ queryKey: ["yandexIntegration"] });
       queryClient.invalidateQueries({ queryKey: ["calendarEvents"] });
@@ -69,7 +70,6 @@ export const useYandexCalendar = () => {
     },
   });
 
-  // Вызывается после ручного импорта .ics файла (запасной способ)
   const markSynced = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -80,13 +80,13 @@ export const useYandexCalendar = () => {
     queryClient.invalidateQueries({ queryKey: ["calendarEvents"] });
   };
 
-  // Отключить — удалить запись и все события
   const disconnect = useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       await (supabase as any).from("yandex_integrations").delete().eq("user_id", user.id);
-      await supabase.from("calendar_events").delete().eq("user_id", user.id).eq("source", "yandex");
+      // Удаляем yandex-события, КРОМЕ отредактированных пользователем
+      await (supabase as any).from("calendar_events").delete().eq("user_id", user.id).eq("source", "yandex").eq("is_modified", false);
     },
     onSuccess: () => {
       toast({ title: "Яндекс Календарь отключён" });

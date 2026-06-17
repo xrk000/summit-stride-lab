@@ -12,9 +12,11 @@ export interface CalendarEvent {
   user_id: string;
   created_at: string;
   updated_at: string;
-  // Google Calendar fields
-  source?: string | null;        // 'manual' | 'google'
+  // Поля интеграций
+  source?: string | null;        // 'manual' | 'google' | 'yandex'
   google_event_id?: string | null;
+  yandex_event_uid?: string | null;
+  is_modified?: boolean;
 }
 
 export const useCalendarEvents = () => {
