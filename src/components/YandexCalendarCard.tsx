@@ -1,17 +1,15 @@
 import { useRef, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Unplug, Upload, RefreshCw, Link2 } from "lucide-react";
+import { RefreshCw, Link2, Unlink, Upload } from "lucide-react";
 import { useYandexCalendar } from "@/hooks/useYandexCalendar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format, parseISO } from "date-fns";
-import { ru } from "date-fns/locale";
 
 const YandexIcon = () => (
-  <svg viewBox="0 0 24 24" className="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 24 24" className="h-5 w-5" xmlns="http://www.w3.org/2000/svg">
     <path d="M2.04 12c0-5.523 4.476-10 9.998-10C17.523 2 22 6.477 22 12s-4.477 10-10.002 10C6.515 22 2.04 17.523 2.04 12z" fill="#FC3F1D" />
     <path d="M13.32 7.666h-.924c-1.694 0-2.585.858-2.585 2.123 0 1.43.616 2.1 1.881 2.958l1.045.704-3.003 4.549H7.49l2.717-4.044c-1.55-1.111-2.43-2.19-2.43-4.044 0-2.289 1.573-3.912 4.576-3.912h3.003v12h-2.036V7.666z" fill="white" />
   </svg>
@@ -53,17 +51,21 @@ function parseIcs(text: string) {
   return events;
 }
 
-export const YandexCalendarPanel = () => {
+export default function YandexCalendarCard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [urlInput, setUrlInput] = useState("");
-
   const { toast } = useToast();
   const {
-    integration, isConnected,
-    saveIcalUrl, isSavingUrl,
-    sync, isSyncing,
-    markSynced, disconnect, isDisconnecting,
+    integration,
+    isConnected,
+    saveIcalUrl,
+    isSavingUrl,
+    sync,
+    isSyncing,
+    markSynced,
+    disconnect,
+    isDisconnecting,
   } = useYandexCalendar();
 
   const handleSaveUrl = () => {
@@ -109,86 +111,80 @@ export const YandexCalendarPanel = () => {
   };
 
   return (
-    <Card className={isConnected ? "border-orange-500/30 bg-orange-500/5" : "border-dashed"}>
-      <CardContent className="p-4 space-y-4">
-        {/* Шапка */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 bg-white dark:bg-zinc-800 rounded-full flex items-center justify-center shadow-sm border border-border flex-shrink-0">
-              <YandexIcon />
-            </div>
-            <div className="min-w-0">
-              <p className="font-medium text-sm flex items-center gap-2">
-                Яндекс Календарь
-                {isConnected && <span className="inline-block w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />}
-              </p>
-              {isConnected && integration?.last_sync_at ? (
-                <p className="text-xs text-muted-foreground truncate">
-                  Синхронизировано: {format(parseISO(integration.last_sync_at), "d MMM, HH:mm", { locale: ru })}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Вставьте ссылку iCal для автоматической синхронизации
-                </p>
-              )}
-            </div>
-          </div>
-
-          {isConnected && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 gap-1.5 py-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                Подключено
-              </Badge>
-              <Button variant="outline" size="sm" onClick={() => sync()} disabled={isSyncing}>
-                <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncing ? "animate-spin" : ""}`} />
-                {isSyncing ? "Синхронизация..." : "Синхронизировать"}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => disconnect()} disabled={isDisconnecting} className="text-muted-foreground hover:text-destructive">
-                <Unplug className="h-4 w-4 mr-1.5" />
-                Отключить
-              </Button>
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <YandexIcon />
+          Яндекс Календарь
+        </CardTitle>
+        <CardDescription>
+          Импортируйте события из Яндекс Календаря по ссылке iCal в свой календарь.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Badge variant={isConnected ? "default" : "secondary"}>
+            {isConnected ? "Подключено" : "Не подключено"}
+          </Badge>
+          {integration?.last_sync_at && (
+            <span className="text-xs text-muted-foreground">
+              Последняя синхронизация:{" "}
+              {new Date(integration.last_sync_at).toLocaleString("ru-RU")}
+            </span>
           )}
         </div>
 
-        {/* Основной способ: ссылка iCal */}
         {!isConnected && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="https://calendar.yandex.ru/export/ics.xml?private_token=..."
-                  className="pl-8 text-sm"
-                />
-              </div>
-              <Button size="sm" onClick={handleSaveUrl} disabled={isSavingUrl}>
-                {isSavingUrl ? "Сохранение..." : "Подключить"}
-              </Button>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="https://calendar.yandex.ru/export/ics.xml?private_token=..."
+                className="pl-8"
+              />
             </div>
-            <p className="text-xs text-muted-foreground">
-              Ссылку можно получить в настройках Яндекс Календаря → «Экспорт» → ссылка iCal.
-            </p>
+            <Button onClick={handleSaveUrl} disabled={isSavingUrl} className="gap-2">
+              <Link2 className="h-4 w-4" />
+              {isSavingUrl ? "Сохранение..." : "Подключить"}
+            </Button>
           </div>
         )}
 
-        {/* Запасной способ: загрузка файла */}
-        <div className="pt-2 border-t border-border/50">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
-              Или загрузите .ics файл вручную
-            </p>
-            <input ref={fileInputRef} type="file" accept=".ics" className="hidden" onChange={handleFile} />
-            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
-              <Upload className={`h-4 w-4 mr-1.5 ${isImporting ? "animate-pulse" : ""}`} />
-              {isImporting ? "Импорт..." : "Загрузить .ics"}
+        {isConnected && (
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 gap-1.5 py-1.5 px-3">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              Подключено
+            </Badge>
+            <Button onClick={() => sync()} disabled={isSyncing} className="gap-2">
+              <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+              {isSyncing ? "Синхронизация..." : "Синхронизировать"}
+            </Button>
+            <Button
+              onClick={() => disconnect()}
+              disabled={isDisconnecting}
+              variant="outline"
+              className="gap-2"
+            >
+              <Unlink className="h-4 w-4" />
+              Отключить
             </Button>
           </div>
+        )}
+
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+          <p className="text-xs text-muted-foreground">
+            Или загрузите .ics файл вручную
+          </p>
+          <input ref={fileInputRef} type="file" accept=".ics" className="hidden" onChange={handleFile} />
+          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
+            <Upload className={`h-4 w-4 mr-1.5 ${isImporting ? "animate-pulse" : ""}`} />
+            {isImporting ? "Импорт..." : "Загрузить .ics"}
+          </Button>
         </div>
       </CardContent>
     </Card>
   );
-};
+}

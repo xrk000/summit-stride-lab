@@ -15,6 +15,7 @@ import { useActivityData } from "@/hooks/useActivityData";
 import { useHabits } from "@/hooks/useHabits";
 import { useTags } from "@/hooks/useTags";
 import GoogleCalendarCard from "@/components/GoogleCalendarCard";
+import YandexCalendarCard from "@/components/YandexCalendarCard";
 import VkConnect from "@/components/VkConnect";
 import { useState, useRef, useEffect } from "react";
 import { format, subDays } from "date-fns";
@@ -375,6 +376,7 @@ const Profile = () => {
             <p className="text-sm text-muted-foreground">Управляйте интеграциями с внешними сервисами</p>
           </div>
           <GoogleCalendarCard />
+          <YandexCalendarCard />
           <div className="rounded-xl border border-border/50 bg-card p-5">
             <h3 className="font-semibold text-base mb-0.5">ВКонтакте</h3>
             <p className="text-sm text-muted-foreground mb-4">Импорт избранных сообщений как задач и заметок</p>

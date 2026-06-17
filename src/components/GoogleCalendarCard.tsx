@@ -55,7 +55,7 @@ export default function GoogleCalendarCard() {
               </Badge>
               <Button onClick={() => sync()} disabled={isSyncing} className="gap-2">
                 <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-                {isSyncing ? "Синхронизация..." : "Обновить"}
+                {isSyncing ? "Синхронизация..." : "Синхронизировать"}
               </Button>
               <Button
                 onClick={() => disconnect()}

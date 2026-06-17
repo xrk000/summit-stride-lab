@@ -574,7 +574,7 @@ export default function Calendar() {
                 </Badge>
                 <Button variant="outline" size="sm" onClick={() => sync()} disabled={isSyncing}>
                   <RefreshCw className={cn("h-4 w-4 mr-1.5", isSyncing && "animate-spin")} />
-                  {isSyncing ? "Синхронизация..." : "Обновить"}
+                  {isSyncing ? "Синхронизация..." : "Синхронизировать"}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => disconnect()} disabled={isDisconnecting} className="text-muted-foreground hover:text-destructive">
                   <Unplug className="h-4 w-4 mr-1.5" />Отключить
