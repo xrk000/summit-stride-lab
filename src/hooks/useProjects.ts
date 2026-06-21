@@ -123,7 +123,7 @@ export const useProjects = () => {
   return {
     projects: projects || [],
     isLoading,
-    createProject: createProject.mutate,
+    createProject,
     updateProject: updateProject.mutate,
     deleteProject: deleteProject.mutate,
   };

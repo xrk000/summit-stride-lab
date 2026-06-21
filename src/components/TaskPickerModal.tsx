@@ -73,8 +73,7 @@ export function TaskPickerModal({
                         >
                             <Checkbox
                                 checked={selectedTaskIds.includes(task.id)}
-                                onCheckedChange={() => toggleTask(task.id)}
-                                onClick={(e) => e.stopPropagation()}
+                                className="pointer-events-none"
                             />
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate">{task.title}</p>

@@ -130,6 +130,7 @@ export default function Tasks() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [filterDate, setFilterDate] = useState<Date | undefined>();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSubmittingTask, setIsSubmittingTask] = useState(false);
 
   const { tasks, isLoading, createTask, createTaskAsync, updateTask, deleteTask, toggleTask } = useTasks();
   const { uploadAttachment } = useAttachments();
@@ -175,48 +176,54 @@ export default function Tasks() {
 
   const handleAddTask = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isSubmittingTask) return;
+    setIsSubmittingTask(true);
     const formData = new FormData(e.currentTarget);
 
-    if (editingTask) {
-      updateTask({
-        id: editingTask.id,
-        title: formData.get("title") as string,
-        priority: formData.get("priority") as string,
-        due_date: formData.get("deadline") as string,
-        description: formData.get("description") as string,
-        tagIds: selectedTagIds,
-        projectId: selectedProjectId,
-        eventId: selectedEventId,
-      });
-      setEditingTask(null);
-    } else {
-      try {
-        const newTask = await createTaskAsync({
+    try {
+      if (editingTask) {
+        updateTask({
+          id: editingTask.id,
           title: formData.get("title") as string,
           priority: formData.get("priority") as string,
           due_date: formData.get("deadline") as string,
           description: formData.get("description") as string,
-          completed: false,
-          completed_at: null,
           tagIds: selectedTagIds,
           projectId: selectedProjectId,
           eventId: selectedEventId,
         });
-        if (pendingFiles.length > 0 && newTask) {
-          for (const file of pendingFiles) {
-            uploadAttachment({ file, entityType: "task", entityId: newTask.id });
+        setEditingTask(null);
+      } else {
+        try {
+          const newTask = await createTaskAsync({
+            title: formData.get("title") as string,
+            priority: formData.get("priority") as string,
+            due_date: formData.get("deadline") as string,
+            description: formData.get("description") as string,
+            completed: false,
+            completed_at: null,
+            tagIds: selectedTagIds,
+            projectId: selectedProjectId,
+            eventId: selectedEventId,
+          });
+          if (pendingFiles.length > 0 && newTask) {
+            for (const file of pendingFiles) {
+              uploadAttachment({ file, entityType: "task", entityId: newTask.id });
+            }
           }
+        } catch {
+          return;
         }
-      } catch {
-        return;
       }
+      setIsDialogOpen(false);
+      setSelectedTagIds([]);
+      setSelectedProjectId(null);
+      setSelectedEventId(null);
+      setPendingFiles([]);
+      e.currentTarget.reset();
+    } finally {
+      setIsSubmittingTask(false);
     }
-    setIsDialogOpen(false);
-    setSelectedTagIds([]);
-    setSelectedProjectId(null);
-    setSelectedEventId(null);
-    setPendingFiles([]);
-    e.currentTarget.reset();
   };
 
   const handleEditTask = (task: Task) => {
@@ -648,7 +655,7 @@ export default function Tasks() {
             </div>
             <TaskTagSelector selectedTagIds={selectedTagIds} onTagsChange={setSelectedTagIds} />
             <TaskAttachments taskId={editingTask?.id || null} pendingFiles={pendingFiles} onPendingFilesChange={setPendingFiles} />
-            <Button type="submit" className="w-full">{editingTask ? "Сохранить" : "Создать"}</Button>
+            <Button type="submit" className="w-full" disabled={isSubmittingTask}>{editingTask ? "Сохранить" : "Создать"}</Button>
           </form>
         </DialogContent>
       </Dialog>

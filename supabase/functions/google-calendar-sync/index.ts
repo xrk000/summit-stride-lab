@@ -6,13 +6,18 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// Карта цветов Google Calendar
+const COLOR_MAP: Record<string, string> = {
+  "1": "#7986cb", "2": "#33b679", "3": "#8e24aa", "4": "#e67c73",
+  "5": "#f6c026", "6": "#f5511d", "7": "#039be5", "8": "#616161",
+  "9": "#3f51b5", "10": "#0b8043", "11": "#d60000",
+};
+
 async function refreshAccessToken(refreshToken: string) {
   const clientId = Deno.env.get("GOOGLE_OAUTH_CLIENT_ID");
   const clientSecret = Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET");
   if (!clientId || !clientSecret) {
-    throw new Error(
-      "GOOGLE_OAUTH_CLIENT_ID/SECRET not configured in edge function secrets",
-    );
+    throw new Error("GOOGLE_OAUTH_CLIENT_ID/SECRET not configured");
   }
   const resp = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -60,12 +65,11 @@ Deno.serve(async (req) => {
       });
     }
     const userId = userData.user.id;
-
     const admin = createClient(supabaseUrl, serviceKey);
 
     const now = new Date();
-    const timeMin = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString(); // Start of last month
-    const timeMax = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString(); // End of next month
+    const timeMin = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+    const timeMax = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
 
     const { data: integration, error: intErr } = await admin
       .from("google_integrations")
@@ -77,10 +81,7 @@ Deno.serve(async (req) => {
     if (!integration) {
       return new Response(
         JSON.stringify({ error: "Google Calendar не подключен" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -89,50 +90,37 @@ Deno.serve(async (req) => {
       ? new Date(integration.expires_at).getTime()
       : 0;
 
-    // Refresh if expired or close to expiry
-    if (Date.now() > expiresAt - 300_000) { // Refresh 5 minutes before expiry
-      console.log(`[FIX] Token for user ${userId} is expiring soon, refreshing...`);
+    if (Date.now() > expiresAt - 300_000) {
+      console.log(`Token expiring for user ${userId}, refreshing...`);
       if (!integration.provider_refresh_token) {
-        console.error(`[FIX] Missing refresh token for user ${userId}`);
         return new Response(
-          JSON.stringify({
-            error:
-              "Refresh token отсутствует. Переподключите Google Calendar (нужен повторный consent).",
-          }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
+          JSON.stringify({ error: "Refresh token отсутствует. Переподключите Google Calendar." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-      const refreshed = await refreshAccessToken(
-        integration.provider_refresh_token,
-      );
+      const refreshed = await refreshAccessToken(integration.provider_refresh_token);
       accessToken = refreshed.access_token;
-      const newExpiresAt = new Date(
-        Date.now() + refreshed.expires_in * 1000,
-      ).toISOString();
+      const newExpiresAt = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
       await admin
         .from("google_integrations")
         .update({ provider_token: accessToken, expires_at: newExpiresAt })
         .eq("user_id", userId);
-      console.log(`[FIX] Token refreshed successfully for user ${userId}`);
+      console.log(`Token refreshed for user ${userId}`);
     }
 
-    console.log(`[FIX] Fetching events for user ${userId} between ${timeMin} and ${timeMax}`);
+    console.log(`Fetching events for user ${userId}`);
     const allEvents: any[] = [];
     let pageToken: string | undefined = undefined;
     let pages = 0;
 
     do {
-      const url = new URL(
-        "https://www.googleapis.com/calendar/v3/calendars/primary/events",
-      );
+      const url = new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
       url.searchParams.set("timeMin", timeMin);
       url.searchParams.set("timeMax", timeMax);
       url.searchParams.set("singleEvents", "true");
       url.searchParams.set("orderBy", "startTime");
-      url.searchParams.set("maxResults", "2500"); // Max allowed by Google
+      url.searchParams.set("maxResults", "2500");
+      url.searchParams.set("conferenceDataVersion", "1");
       if (pageToken) url.searchParams.set("pageToken", pageToken);
 
       const r = await fetch(url.toString(), {
@@ -140,19 +128,20 @@ Deno.serve(async (req) => {
       });
       if (!r.ok) {
         const txt = await r.text();
-        console.error(`[FIX] Google API error for user ${userId}:`, txt);
         throw new Error(`Google Calendar API error ${r.status}: ${txt}`);
       }
       const json = await r.json();
       if (json.items) allEvents.push(...json.items);
       pageToken = json.nextPageToken;
       pages++;
-    } while (pageToken && pages < 5); // Increased maxResults, so 5 pages = 12500 events
+    } while (pageToken && pages < 5);
 
-    console.log(`[FIX] Fetched ${allEvents.length} events from Google for user ${userId}`);
+    console.log(`Fetched ${allEvents.length} events for user ${userId}`);
 
     const googleEventIds = allEvents.map(ev => ev.id);
     let imported = 0;
+    let skipped = 0;
+
     for (const ev of allEvents) {
       if (ev.status === "cancelled") continue;
 
@@ -161,51 +150,87 @@ Deno.serve(async (req) => {
 
       let date: string;
       let time: string | null = null;
+
       if (ev.start?.dateTime) {
-        // Use full ISO string to avoid local timezone issues during split
-        const localStr = ev.start.dateTime.substring(0, 16); // "2026-05-09T01:00"
+        const localStr = ev.start.dateTime.substring(0, 16);
         date = localStr.split("T")[0];
         time = localStr.split("T")[1];
       } else {
         date = ev.start.date;
       }
 
-      const description = [ev.description, ev.location]
-        .filter(Boolean)
-        .join("\n\n") || null;
+      let end_time: string | null = null;
+      if (ev.end?.dateTime) {
+        end_time = ev.end.dateTime.substring(0, 16).split("T")[1];
+      }
 
+      const meet_link: string | null =
+        ev.conferenceData?.entryPoints?.find(
+          (ep: any) => ep.entryPointType === "video"
+        )?.uri || null;
+
+      const color: string | null = ev.colorId
+        ? (COLOR_MAP[ev.colorId] || null)
+        : null;
+
+      const is_recurring: boolean = !!(ev.recurrence || ev.recurringEventId);
+
+      // ── Проверяем, не отредактировано ли событие локально ────────────
+      const { data: existing } = await admin
+        .from("calendar_events")
+        .select("id, is_modified")
+        .eq("user_id", userId)
+        .eq("google_event_id", ev.id)
+        .maybeSingle();
+
+      if (existing?.is_modified) {
+        skipped++;
+        continue;
+      }
+
+      // ── Upsert ──────────────────────────────────────────────────────
       const { error: upErr } = await admin
         .from("calendar_events")
         .upsert(
           {
             user_id: userId,
             title: ev.summary || "(без названия)",
-            description,
+            description: ev.description || null,
+            location: ev.location || null,
             date,
             time,
+            end_time,
+            meet_link,
+            color,
+            is_recurring,
             type: "google",
             google_event_id: ev.id,
             source: "google",
           },
           { onConflict: "user_id,google_event_id" },
         );
-      if (!upErr) imported++;
-      else console.error(`[FIX] Upsert error for event ${ev.id}:`, upErr);
+
+      if (!upErr) {
+        imported++;
+      } else {
+        console.error(`Upsert error for event ${ev.id}:`, upErr);
+      }
     }
 
-    // REMOVE DELETED EVENTS: delete local google events that are NOT in the fetched list
-    console.log(`[FIX] Cleaning up deleted events for user ${userId}`);
+    // Удаляем google-события которых больше нет в Google, КРОМЕ отредактированных
+    console.log(`Cleaning up deleted events for user ${userId}`);
     const { error: delErr, count: delCount } = await admin
       .from("calendar_events")
       .delete()
       .eq("user_id", userId)
-      .eq("type", "google")
-      .not("google_event_id", "in", `(${googleEventIds.join(',')})`);
+      .eq("source", "google")
+      .eq("is_modified", false)
+      .not("google_event_id", "in", `(${googleEventIds.join(",")})`);
 
     if (delErr) {
-      console.error(`[FIX] Cleanup error for user ${userId}:`, delErr);
+      console.error(`Cleanup error:`, delErr);
     } else {
-      console.log(`[FIX] Removed ${delCount || 0} stale events for user ${userId}`);
+      console.log(`Removed ${delCount || 0} stale events`);
     }
 
     await admin
@@ -217,16 +242,14 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         imported,
+        skipped,
         deleted: delCount || 0,
-        total: allEvents.length
+        total: allEvents.length,
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
-    console.error("google-calendar-sync error", e);
+    console.error("google-calendar-sync error:", e);
     const msg = e instanceof Error ? e.message : "Unknown error";
     return new Response(JSON.stringify({ error: msg }), {
       status: 500,

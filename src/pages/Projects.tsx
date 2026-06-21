@@ -86,8 +86,6 @@ export default function Projects() {
   useEffect(() => {
     if (editingProject && projectTasks) {
       setSelectedTaskIds(projectTasks.map((t: any) => t.id));
-    } else if (!editingProject) {
-      setSelectedTaskIds([]);
     }
   }, [editingProject, projectTasks]);
 
@@ -164,12 +162,21 @@ export default function Projects() {
       try {
         const newProject = await createProject.mutateAsync({ name, description, status });
         if (newProject) {
-          for (const taskId of selectedTaskIds) {
-            await addTaskToProject({ projectId: newProject.id, taskId });
+          if (selectedTaskIds.length > 0) {
+            const { error: linkError } = await supabase
+              .from("project_tasks")
+              .insert(
+                selectedTaskIds.map((taskId) => ({
+                  project_id: newProject.id,
+                  task_id: taskId,
+                }))
+              );
+            if (linkError) throw linkError;
           }
           for (const tagId of selectedProjectTagIds) {
             addTagToEntity({ entityType: "project", entityId: newProject.id, tagId });
           }
+          queryClient.invalidateQueries({ queryKey: ["allProjectTasksWithTasks"] });
         }
       } catch (error) {
         console.error("Ошибка создания проекта", error);
