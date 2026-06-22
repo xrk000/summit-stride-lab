@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useProfile, type Profile } from "@/hooks/useProfile";
+import { getAvatarUrl } from "@/lib/avatars";
 import { supabase } from "@/integrations/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -52,7 +53,7 @@ function SidebarContent({
           <DropdownMenuTrigger asChild>
             <button className="focus:outline-none flex items-center gap-3 w-full hover:opacity-80 transition-opacity">
               <Avatar className="h-12 w-12 cursor-pointer">
-                <AvatarImage src={profile?.avatar_url || ""} alt={profile?.username || "User"} />
+                <AvatarImage src={getAvatarUrl(profile?.avatar_id) || ""} alt={profile?.username || "User"} />
                 <AvatarFallback className="bg-primary/10 text-primary text-lg">
                   {profile?.username?.[0]?.toUpperCase() || "U"}
                 </AvatarFallback>
@@ -227,3 +228,6 @@ export default function Layout() {
     </div>
   );
 }
+
+
+

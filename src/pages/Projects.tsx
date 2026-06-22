@@ -464,13 +464,13 @@ export default function Projects() {
       <Dialog open={!!selectedProject} onOpenChange={() => setSelectedProject(null)}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <span className="text-2xl">{getProjectEmoji(selectedProject?.name || "")}</span>
-              {selectedProject?.name}
+            <DialogTitle className="flex items-center gap-2 min-w-0">
+              <span className="text-2xl flex-shrink-0">{getProjectEmoji(selectedProject?.name || "")}</span>
+              <span className="break-all">{selectedProject?.name}</span>
             </DialogTitle>
           </DialogHeader>
 
-          <Tabs defaultValue="info" className="w-full">
+          <Tabs defaultValue="info" className="w-full min-w-0">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="info" className="gap-2">
                 <Info className="h-4 w-4" /> Инфо
@@ -480,10 +480,12 @@ export default function Projects() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="info" className="space-y-4 pt-4">
+            <TabsContent value="info" className="space-y-4 pt-4 min-w-0">
               <div>
                 <Label>Описание</Label>
-                <p className="text-sm mt-1">{selectedProject?.description || "Нет описания"}</p>
+                <div className="mt-2 text-sm whitespace-pre-wrap break-all bg-muted/30 rounded-xl p-4 leading-relaxed">
+                  {selectedProject?.description || "Нет описания"}
+                </div>
               </div>
               <div>
                 <Label>Статус</Label>
@@ -554,10 +556,10 @@ export default function Projects() {
                     {selectedTaskIds.map((taskId) => {
                       const task = tasks.find((t) => t.id === taskId);
                       return (
-                        <Badge key={taskId} variant="secondary" className="gap-1 pr-1">
-                          {task?.title || taskId}
+                        <Badge key={taskId} variant="secondary" className="gap-1 pr-1 max-w-full">
+                          <span className="truncate max-w-[200px]">{task?.title || taskId}</span>
                           <X
-                            className="h-3 w-3 cursor-pointer ml-1"
+                            className="h-3 w-3 cursor-pointer ml-1 flex-shrink-0"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedTaskIds((prev) => prev.filter((id) => id !== taskId));
@@ -656,7 +658,7 @@ function ProjectTasksList({ projectId, navigate }: { projectId: string; navigate
             }}
           />
           <div className="flex-1 min-w-0">
-            <p className={cn("text-sm font-medium", task.completed && "line-through text-muted-foreground")}>
+            <p className={cn("text-sm font-medium truncate", task.completed && "line-through text-muted-foreground")}>
               {task.title}
             </p>
             {task.description && (

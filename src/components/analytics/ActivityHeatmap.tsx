@@ -43,6 +43,8 @@ export function ActivityHeatmap() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["activityHeatmap"],
+    staleTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
@@ -151,30 +153,30 @@ export function ActivityHeatmap() {
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span>Меньше</span>
           {HEAT_CLASSES.map((cls, i) => (
-            <div key={i} className={cn("w-[11px] h-[11px] rounded-[2px]", cls)} />
+            <div key={i} className={cn("w-[15px] h-[15px] rounded-[3px]", cls)} />
           ))}
           <span>Больше</span>
         </div>
       </div>
 
       <div className="overflow-x-auto pb-1">
-        <div className="inline-flex gap-[3px]">
+        <div className="inline-flex gap-[4px]">
           {/* Day-of-week labels */}
-          <div className="flex flex-col mr-1 pt-5 flex-shrink-0">
+          <div className="flex flex-col mr-1 pt-6 flex-shrink-0">
             {DAY_LABELS.map((label, i) => (
-              <div key={i} className="h-[13px] w-5 flex items-center mb-[3px] last:mb-0">
-                <span className="text-[9px] text-muted-foreground leading-none">{label}</span>
+              <div key={i} className="h-[18px] w-6 flex items-center mb-[4px] last:mb-0">
+                <span className="text-[10px] text-muted-foreground leading-none">{label}</span>
               </div>
             ))}
           </div>
 
           {/* Week columns */}
           {weeks.map((week, wIdx) => (
-            <div key={wIdx} className="flex flex-col gap-[3px]">
+            <div key={wIdx} className="flex flex-col gap-[4px]">
               {/* Month label */}
-              <div className="h-5 flex items-end pb-0.5">
+              <div className="h-6 flex items-end pb-0.5">
                 {monthLabels[wIdx] && (
-                  <span className="text-[9px] text-muted-foreground leading-none capitalize whitespace-nowrap">
+                  <span className="text-[10px] text-muted-foreground leading-none capitalize whitespace-nowrap">
                     {monthLabels[wIdx]}
                   </span>
                 )}
@@ -183,7 +185,7 @@ export function ActivityHeatmap() {
               {/* Day cells */}
               {week.map((dayData, dIdx) => {
                 if (!dayData) {
-                  return <div key={dIdx} className="w-[13px] h-[13px] rounded-[2px] opacity-0" />;
+                  return <div key={dIdx} className="w-[18px] h-[18px] rounded-[3px] opacity-0" />;
                 }
                 const total = dayData.tasks + dayData.habits + dayData.events;
                 const level = getHeatLevel(total);
@@ -191,7 +193,7 @@ export function ActivityHeatmap() {
                   <div
                     key={dIdx}
                     className={cn(
-                      "w-[13px] h-[13px] rounded-[2px] cursor-default transition-opacity hover:opacity-70",
+                      "w-[18px] h-[18px] rounded-[3px] cursor-default transition-opacity hover:opacity-70",
                       HEAT_CLASSES[level]
                     )}
                     onMouseEnter={(e) => setTooltip({ data: dayData, x: e.clientX, y: e.clientY })}

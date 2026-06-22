@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -43,6 +44,7 @@ const YandexIcon = () => (
 );
 
 export default function Calendar() {
+  const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
@@ -601,7 +603,7 @@ export default function Calendar() {
 
       {/* Диалог создания / редактирования */}
       <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) { setEditingEvent(null); setDialogTaskIds([]); setTaskSearch(""); } }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>{editingEvent ? "Редактировать событие" : "Новое событие"}</DialogTitle>
           </DialogHeader>
@@ -611,7 +613,7 @@ export default function Calendar() {
               После сохранения событие не будет перезаписано при синхронизации.
             </p>
           )}
-          <form onSubmit={handleAddEvent} className="space-y-4">
+          <form onSubmit={handleAddEvent} className="space-y-4 min-w-0">
             <div className="space-y-2">
               <Label htmlFor="title">Название</Label>
               <Input id="title" name="title" placeholder="Введите название события" defaultValue={editingEvent?.title} required />
@@ -629,7 +631,7 @@ export default function Calendar() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="date">Дата</Label>
-              <Input id="date" name="date" type="date" defaultValue={editingEvent?.date || selectedDay} required />
+              <Input id="date" name="date" type="date" defaultValue={editingEvent?.date || selectedDay} min={editingEvent ? undefined : todayStr} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="time">Время</Label>
@@ -683,7 +685,7 @@ export default function Calendar() {
                           )}>
                             {checked && <CheckSquare className="h-2.5 w-2.5 text-primary-foreground" />}
                           </div>
-                          <span className="flex-1 truncate">{task.title}</span>
+                          <span className="flex-1 min-w-0 truncate">{task.title}</span>
                           {task.priority && (
                             <span className={cn(
                               "text-xs px-1.5 py-0.5 rounded flex-shrink-0",
@@ -706,9 +708,9 @@ export default function Calendar() {
                     const task = tasks.find(t => t.id === id);
                     return task ? (
                       <span key={id}
-                        className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                        {task.title}
-                        <button type="button" onClick={() => setDialogTaskIds(prev => prev.filter(i => i !== id))}>
+                        className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full max-w-full">
+                        <span className="truncate max-w-[200px]">{task.title}</span>
+                        <button type="button" className="flex-shrink-0" onClick={() => setDialogTaskIds(prev => prev.filter(i => i !== id))}>
                           <X className="h-3 w-3" />
                         </button>
                       </span>
@@ -739,7 +741,7 @@ export default function Calendar() {
 
       {/* Просмотр события/задачи/привычки */}
       <Dialog open={!!viewingItem} onOpenChange={() => setViewingItem(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {viewingItem?.type === 'event' && viewingItem.data.source === 'google' && <><GoogleIcon /><span>Google Calendar</span></>}
@@ -750,7 +752,7 @@ export default function Calendar() {
             </DialogTitle>
           </DialogHeader>
           {viewingItem && (
-            <div className="space-y-3">
+            <div className="space-y-3 min-w-0">
               {viewingItem.data.color && (
                 <div className="h-1 rounded-full" style={{ backgroundColor: viewingItem.data.color }} />
               )}
@@ -831,7 +833,7 @@ export default function Calendar() {
               {viewingItem.data.description && (
                 <div>
                   <Label className="text-sm font-semibold">Описание</Label>
-                  <p className="text-foreground mt-1 whitespace-pre-wrap text-sm">{viewingItem.data.description}</p>
+                  <p className="text-foreground mt-1 whitespace-pre-wrap break-all text-sm">{viewingItem.data.description}</p>
                 </div>
               )}
               {viewingItem.type === 'event' && eventLinkedTasks.length > 0 && (
@@ -843,7 +845,8 @@ export default function Calendar() {
                   <div className="space-y-1.5">
                     {eventLinkedTasks.map((task: any) => (
                       <div key={task.id}
-                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 bg-muted/30">
+                        onClick={() => navigate("/tasks", { state: { selectedTaskId: task.id } })}
+                        className="flex items-center gap-2.5 p-2.5 rounded-lg border border-border/50 bg-muted/30 cursor-pointer hover:bg-muted/60 transition-colors">
                         <div className={cn(
                           "w-3.5 h-3.5 rounded-full border-2 flex-shrink-0",
                           task.completed

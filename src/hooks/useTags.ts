@@ -9,9 +9,21 @@ export interface Tag {
   created_at: string;
 }
 
+const ALL_ENTITY_TAGS_QUERY_KEY: Record<string, string> = {
+  task: "allTaskTags",
+  habit: "allHabitTags",
+  project: "allProjectTags",
+  calendar_event: "allEventTags",
+};
+
 export const useTags = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const invalidateAllEntityTags = (entityType: string) => {
+    const key = ALL_ENTITY_TAGS_QUERY_KEY[entityType];
+    if (key) queryClient.invalidateQueries({ queryKey: [key] });
+  };
 
   const { data: tags, isLoading } = useQuery({
     queryKey: ["tags"],
@@ -123,6 +135,7 @@ export const useTags = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tags"] });
       queryClient.invalidateQueries({ queryKey: [`${variables.entityType}s`] });
+      invalidateAllEntityTags(variables.entityType);
     },
   });
 
@@ -152,6 +165,7 @@ export const useTags = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tags"] });
       queryClient.invalidateQueries({ queryKey: [`${variables.entityType}s`] });
+      invalidateAllEntityTags(variables.entityType);
     },
   });
 

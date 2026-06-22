@@ -7,37 +7,24 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useTags } from "@/hooks/useTags";
 
 interface TagInputProps {
-  entityType: 'task' | 'note' | 'habit' | 'project' | 'calendar_event';
-  entityId: string;
   selectedTags: any[];
-  onTagsChange?: (tags: any[]) => void;
-  isNewEntity?: boolean;
+  onTagsChange: (tags: any[]) => void;
 }
 
-export const TagInput = ({ entityType, entityId, selectedTags, onTagsChange, isNewEntity = false }: TagInputProps) => {
-  const { tags, createTag, addTagToEntity, removeTagFromEntity } = useTags();
+// Только локальный список — реальное сохранение в БД происходит при сабмите родительской формы (кнопка "Сохранить").
+export const TagInput = ({ selectedTags, onTagsChange }: TagInputProps) => {
+  const { tags, createTag } = useTags();
   const [newTagName, setNewTagName] = useState("");
   const [isOpen, setIsOpen] = useState(false);
 
   const handleAddTag = (tagId: string) => {
-    if (isNewEntity) {
-      const tag = tags.find(t => t.id === tagId);
-      if (tag) {
-        onTagsChange?.([...selectedTags, tag]);
-      }
-    } else {
-      addTagToEntity({ entityType, entityId, tagId });
-      onTagsChange?.(selectedTags);
-    }
+    const tag = tags.find(t => t.id === tagId);
+    if (!tag || selectedTags.some(t => t.id === tagId)) return;
+    onTagsChange([...selectedTags, tag]);
   };
 
   const handleRemoveTag = (tagId: string) => {
-    if (isNewEntity) {
-      onTagsChange?.(selectedTags.filter(t => t.id !== tagId));
-    } else {
-      removeTagFromEntity({ entityType, entityId, tagId });
-      onTagsChange?.(selectedTags);
-    }
+    onTagsChange(selectedTags.filter(t => t.id !== tagId));
   };
 
   const handleCreateTag = async () => {
@@ -59,7 +46,7 @@ export const TagInput = ({ entityType, entityId, selectedTags, onTagsChange, isN
 
   // Фильтруем теги по введенному тексту и исключаем уже выбранные
   const availableTags = tags.filter(tag => {
-    const matchesSearch = !newTagName.trim() || 
+    const matchesSearch = !newTagName.trim() ||
       tag.name.toLowerCase().includes(newTagName.trim().toLowerCase());
     const notSelected = !selectedTags.some(st => st.id === tag.id);
     return matchesSearch && notSelected;

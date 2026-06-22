@@ -10,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, TrendingUp, CheckCircle2, Circle, Pencil, Trash2, Search, Flame, Loader2 } from "lucide-react";
 import { useHabits, type Habit } from "@/hooks/useHabits";
-import { useTags } from "@/hooks/useTags";
 import { useAllHabitTags } from "@/hooks/useAllHabitTags";
 import { TagInput } from "@/components/TagInput";
 import { cn } from "@/lib/utils";
@@ -24,10 +23,10 @@ export default function Habits() {
   const [deletingHabitId, setDeletingHabitId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { locale: ru }));
+  const minWeekStart = subWeeks(startOfWeek(new Date(), { locale: ru }), 2);
   const [selectedTags, setSelectedTags] = useState<Array<{ id: string; name: string }>>([]);
 
   const { habits, habitEntries, isLoading, createHabit, updateHabit, deleteHabit, toggleHabitEntry } = useHabits();
-  const { tags, addTagToEntity, removeTagFromEntity } = useTags();
   const { data: habitTagsMap } = useAllHabitTags();
 
   const handleAddHabit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -41,22 +40,8 @@ export default function Habits() {
     };
 
     if (editingHabit) {
-      updateHabit({ id: editingHabit.id, ...habitData });
-
-      const currentTags = habitTagsMap?.get(editingHabit.id) || [];
-      const currentTagIds = currentTags.map(t => t.id);
-      const newTagIds = selectedTags.map(t => t.id);
-
-      const tagsToRemove = currentTagIds.filter(id => !newTagIds.includes(id));
-      tagsToRemove.forEach(tagId => {
-        removeTagFromEntity({ entityType: 'habit', entityId: editingHabit.id, tagId });
-      });
-
-      const tagsToAdd = newTagIds.filter(id => !currentTagIds.includes(id));
-      tagsToAdd.forEach(tagId => {
-        addTagToEntity({ entityType: 'habit', entityId: editingHabit.id, tagId });
-      });
-
+      const tagIds = selectedTags.map(t => t.id);
+      updateHabit({ id: editingHabit.id, ...habitData, tagIds });
       setEditingHabit(null);
     } else {
       const tagIds = selectedTags.map(t => t.id);
@@ -202,7 +187,7 @@ export default function Habits() {
           {/* Кнопка */}
           <div className="flex-shrink-0">
             <button
-              onClick={() => setIsDialogOpen(true)}
+              onClick={() => { setEditingHabit(null); setSelectedTags([]); setIsDialogOpen(true); }}
               className="flex items-center gap-2 px-5 py-3 rounded-xl border transition-all text-sm font-medium bg-blue-500/20 hover:bg-blue-500/40 border-blue-500/30 text-blue-300"
             >
               <Plus className="h-4 w-4" />
@@ -221,6 +206,7 @@ export default function Habits() {
           <Button
             variant="ghost" size="sm"
             className="h-8 px-3 text-sm"
+            disabled={currentWeekStart <= minWeekStart}
             onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}
           >
             ←
@@ -296,7 +282,7 @@ export default function Habits() {
                       )}
                     </div>
                     {habit.description && (
-                      <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2 break-words">{habit.description}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2 break-all">{habit.description}</p>
                     )}
                     {habitTags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
@@ -418,15 +404,12 @@ export default function Habits() {
             <div>
               <Label>Теги</Label>
               <TagInput
-                entityType="habit"
-                entityId={editingHabit?.id || null}
                 selectedTags={selectedTags}
                 onTagsChange={setSelectedTags}
-                isNewEntity={!editingHabit}
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); setEditingHabit(null); setSelectedTags([]); }}>
                 Отмена
               </Button>
               <Button type="submit">

@@ -224,6 +224,8 @@ export default function Notes() {
   const [newNoteTags, setNewNoteTags] = useState<any[]>([]);
   const [activeCategory, setActiveCategory] = useState("work");
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [isSaveTemplateDialogOpen, setIsSaveTemplateDialogOpen] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
 
   const { notes, isLoading, createNote, createNoteAsync, updateNote, deleteNote } = useNotes();
   const { getEntityTags, addTagToEntity } = useTags();
@@ -275,12 +277,17 @@ export default function Notes() {
     setIsDialogOpen(true);
   };
 
-  const saveCurrentNoteAsTemplate = async () => {
+  const saveCurrentNoteAsTemplate = () => {
     if (!selectedNote) return;
-    const name = prompt("Введите название шаблона:", selectedNote.title);
-    if (name) {
-      await createTemplate.mutate({ name, title: selectedNote.title, content: selectedNote.content || "" });
-    }
+    setNewTemplateName(selectedNote.title || "");
+    setIsSaveTemplateDialogOpen(true);
+  };
+
+  const confirmSaveTemplate = () => {
+    if (!selectedNote || !newTemplateName.trim()) return;
+    createTemplate.mutate({ name: newTemplateName.trim(), title: selectedNote.title, content: selectedNote.content || "" });
+    setIsSaveTemplateDialogOpen(false);
+    setNewTemplateName("");
   };
 
   const handleAddNote = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -292,7 +299,8 @@ export default function Notes() {
     };
 
     if (editingNote) {
-      updateNote({ id: editingNote.id, ...noteData });
+      const tagIds = (noteTags[editingNote.id] || []).map((t: any) => t.id);
+      updateNote({ id: editingNote.id, ...noteData, tagIds });
       setEditingNote(null);
     } else {
       try {
@@ -399,7 +407,7 @@ export default function Notes() {
               Шаблоны
             </button>
             <button
-              onClick={() => setIsDialogOpen(true)}
+              onClick={() => { setSelectedTemplate(null); setIsDialogOpen(true); }}
               className="flex items-center gap-2 px-4 py-3 rounded-xl border transition-all text-sm font-medium bg-blue-500/20 hover:bg-blue-500/40 border-blue-500/30 text-blue-300"
             >
               <Plus className="h-4 w-4" />
@@ -567,14 +575,10 @@ export default function Notes() {
             <div>
               <Label>Теги</Label>
               <TagInput
-                entityType="note"
-                entityId={editingNote?.id || 'temp'}
                 selectedTags={editingNote ? (noteTags[editingNote.id] || []) : newNoteTags}
-                isNewEntity={!editingNote}
-                onTagsChange={async (tags) => {
+                onTagsChange={(tags) => {
                   if (editingNote) {
-                    const updatedTags = await getEntityTags("note", editingNote.id);
-                    setNoteTags(prev => ({ ...prev, [editingNote.id]: updatedTags }));
+                    setNoteTags(prev => ({ ...prev, [editingNote.id]: tags }));
                   } else {
                     setNewNoteTags(tags);
                   }
@@ -594,7 +598,7 @@ export default function Notes() {
               />
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Отмена</Button>
+              <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); setEditingNote(null); setSelectedTemplate(null); setNewNoteTags([]); setPendingFiles([]); }}>Отмена</Button>
               <Button type="submit">{editingNote ? "Сохранить" : "Создать"}</Button>
             </div>
           </form>
@@ -682,10 +686,33 @@ export default function Notes() {
             <Button
               variant="ghost"
               className="w-full gap-2 text-muted-foreground"
-              onClick={() => { setIsTemplatePickerOpen(false); setIsDialogOpen(true); }}
+              onClick={() => { setSelectedTemplate(null); setIsTemplatePickerOpen(false); setIsDialogOpen(true); }}
             >
               <FileText className="h-4 w-4" />
               Создать пустую заметку
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Название нового шаблона */}
+      <Dialog open={isSaveTemplateDialogOpen} onOpenChange={setIsSaveTemplateDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Сохранить как шаблон</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="templateName">Название шаблона</Label>
+              <Input
+                id="templateName"
+                value={newTemplateName}
+                onChange={(e) => setNewTemplateName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); confirmSaveTemplate(); } }}
+                autoFocus
+                className="mt-1"
+              />
+            </div>
+            <Button className="w-full" disabled={!newTemplateName.trim()} onClick={confirmSaveTemplate}>
+              Сохранить
             </Button>
           </div>
         </DialogContent>
@@ -697,8 +724,8 @@ export default function Notes() {
           <DialogHeader>
             <DialogTitle className="text-xl pr-8 break-all">{selectedNote?.title}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="whitespace-pre-wrap break-words text-sm leading-relaxed font-mono bg-muted/30 rounded-xl p-4">
+          <div className="space-y-4 min-w-0">
+            <div className="whitespace-pre-wrap break-all text-sm leading-relaxed font-mono bg-muted/30 rounded-xl p-4">
               {selectedNote?.content || "Нет содержания"}
             </div>
             {(noteTags[selectedNote?.id] || []).length > 0 && (

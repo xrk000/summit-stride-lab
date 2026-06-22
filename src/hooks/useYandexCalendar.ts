@@ -37,8 +37,9 @@ export const useYandexCalendar = () => {
       return data;
     },
     onSuccess: () => {
-      toast({ title: "Ссылка сохранена", description: "Яндекс Календарь подключён" });
+      toast({ title: "Ссылка сохранена", description: "Яндекс Календарь подключён, синхронизация..." });
       queryClient.invalidateQueries({ queryKey: ["yandexIntegration"] });
+      sync.mutate();
     },
     onError: (e: Error) => {
       toast({ title: "Ошибка", description: e.message, variant: "destructive" });

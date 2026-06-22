@@ -6,6 +6,7 @@ export interface Profile {
   id: string;
   username: string | null;
   avatar_url: string | null;
+  avatar_id: string | null;
   timezone: string | null;
 }
 
@@ -63,45 +64,12 @@ export const useProfile = () => {
     },
   });
 
-  const uploadAvatar = useMutation({
-    mutationFn: async (file: File) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (!user) throw new Error("Not authenticated");
-
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user.id}/avatar.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      return publicUrl;
-    },
-    onSuccess: (url) => {
-      // Добавляем timestamp для обхода кеширования браузером
-      const cacheBustedUrl = `${url}?t=${Date.now()}`;
-      updateProfile.mutate({ avatar_url: cacheBustedUrl });
-    },
-    onError: (error) => {
-      toast({
-        title: "Ошибка загрузки",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+  const setAvatar = (avatarId: string) => updateProfile.mutate({ avatar_id: avatarId });
 
   return {
     profile,
     isLoading,
     updateProfile,
-    uploadAvatar,
+    setAvatar,
   };
 };

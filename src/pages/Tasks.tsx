@@ -22,7 +22,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useAllTaskProjects } from "@/hooks/useAllTaskProjects";
 import { useCalendarEvents } from "@/hooks/useCalendarEvents";
 import { useAllTaskEvents } from "@/hooks/useAllTaskEvents";
-import { FolderKanban, CalendarDays } from "lucide-react";
+import { FolderKanban, CalendarDays, CheckCircle2, Circle } from "lucide-react";
 import { TaskTagSelector } from "@/components/TaskTagSelector";
 import { TaskAttachments } from "@/components/TaskAttachments";
 import { useAttachments, Attachment } from "@/hooks/useAttachments";
@@ -545,7 +545,7 @@ export default function Tasks() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="deadline">Дедлайн</Label>
-              <Input id="deadline" name="deadline" type="date" defaultValue={editingTask?.due_date || ""} />
+              <Input id="deadline" name="deadline" type="date" defaultValue={editingTask?.due_date || ""} min={editingTask ? undefined : format(new Date(), "yyyy-MM-dd")} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Описание</Label>
@@ -666,7 +666,7 @@ export default function Tasks() {
           <DialogHeader>
             <DialogTitle className="break-all pr-6">{selectedTask?.title}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             <div>
               <Label>Приоритет</Label>
               <p className="text-sm mt-1">
@@ -683,14 +683,52 @@ export default function Tasks() {
             )}
             <div>
               <Label>Описание</Label>
-              <div className="mt-2 text-sm whitespace-pre-wrap break-words bg-muted/30 rounded-xl p-4 overflow-hidden leading-relaxed">
+              <div className="mt-2 text-sm whitespace-pre-wrap break-all bg-muted/30 rounded-xl p-4 leading-relaxed">
                 {selectedTask?.description || "Нет описания"}
               </div>
             </div>
             <div>
               <Label>Статус</Label>
-              <p className="text-sm mt-1">{selectedTask?.completed ? "Завершена" : "Активна"}</p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="text-sm">{selectedTask?.completed ? "Завершена" : "Активна"}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!selectedTask) return;
+                    toggleTask(selectedTask.id);
+                    setSelectedTask({ ...selectedTask, completed: !selectedTask.completed });
+                  }}
+                >
+                  {selectedTask?.completed ? (
+                    <><Circle className="h-3.5 w-3.5 mr-1.5" />Отменить выполнение</>
+                  ) : (
+                    <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Отметить выполненной</>
+                  )}
+                </Button>
+              </div>
             </div>
+            {(() => {
+              const projId = selectedTask && taskProjectsMap?.get(selectedTask.id);
+              const proj = projId ? projects.find(p => p.id === projId) : null;
+              return proj ? (
+                <div>
+                  <Label className="flex items-center gap-1.5 mb-2">
+                    <FolderKanban className="h-3.5 w-3.5" />
+                    Связанный проект
+                  </Label>
+                  <div className="flex items-center gap-3 p-3 rounded-xl border border-violet-500/30 bg-violet-500/5">
+                    <div className="w-9 h-9 rounded-lg bg-violet-500/15 flex items-center justify-center flex-shrink-0">
+                      <FolderKanban className="h-4 w-4 text-violet-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{proj.name}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : null;
+            })()}
             {(() => {
               const evId = selectedTask && taskEventsMap?.get(selectedTask.id);
               const ev = evId ? events.find(e => e.id === evId) : null;

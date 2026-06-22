@@ -96,6 +96,7 @@ export const useHabits = () => {
       queryClient.invalidateQueries({ queryKey: ["habits"] });
       queryClient.invalidateQueries({ queryKey: ["userStats"] });
       queryClient.invalidateQueries({ queryKey: ["habitTags"] });
+      queryClient.invalidateQueries({ queryKey: ["allHabitTags"] });
       toast({
         title: "Привычка создана",
         description: "Привычка успешно добавлена",
@@ -111,7 +112,7 @@ export const useHabits = () => {
   });
 
   const updateHabit = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Habit> & { id: string }) => {
+    mutationFn: async ({ id, tagIds, ...updates }: Partial<Habit> & { id: string; tagIds?: string[] }) => {
       const { data, error } = await supabase
         .from("habits")
         .update(updates)
@@ -120,10 +121,22 @@ export const useHabits = () => {
         .single();
 
       if (error) throw error;
+
+      if (tagIds !== undefined) {
+        await supabase.from("habit_tags").delete().eq("habit_id", id);
+        if (tagIds.length > 0) {
+          const tagRelations = tagIds.map(tagId => ({ habit_id: id, tag_id: tagId }));
+          const { error: tagsError } = await supabase.from("habit_tags").insert(tagRelations);
+          if (tagsError) throw tagsError;
+        }
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["habits"] });
+      queryClient.invalidateQueries({ queryKey: ["habitTags"] });
+      queryClient.invalidateQueries({ queryKey: ["allHabitTags"] });
       toast({
         title: "Привычка обновлена",
         description: "Изменения сохранены",

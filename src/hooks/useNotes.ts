@@ -67,7 +67,7 @@ export const useNotes = () => {
   });
 
   const updateNote = useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Note> & { id: string }) => {
+    mutationFn: async ({ id, tagIds, ...updates }: Partial<Note> & { id: string; tagIds?: string[] }) => {
       const { data, error } = await supabase
         .from("notes")
         .update(updates)
@@ -76,6 +76,16 @@ export const useNotes = () => {
         .single();
 
       if (error) throw error;
+
+      if (tagIds !== undefined) {
+        await supabase.from("note_tags").delete().eq("note_id", id);
+        if (tagIds.length > 0) {
+          const tagRelations = tagIds.map(tagId => ({ note_id: id, tag_id: tagId }));
+          const { error: tagsError } = await supabase.from("note_tags").insert(tagRelations);
+          if (tagsError) throw tagsError;
+        }
+      }
+
       return data;
     },
     onSuccess: () => {

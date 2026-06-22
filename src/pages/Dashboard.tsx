@@ -12,7 +12,7 @@ import {
   Calendar, CheckSquare, TrendingUp, Plus, AlertCircle,
   FileText, Flame, Star, AlertTriangle, CheckCheck,
   ArrowRight, Settings, GripVertical, Eye, EyeOff, Check as CheckIcon,
-  ChevronDown, Zap, FolderKanban,
+  ChevronDown, Zap, FolderKanban, CheckCircle2, Circle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isHabitDueOnDate } from "@/lib/habitUtils";
@@ -404,8 +404,8 @@ export default function Dashboard() {
                     <Badge variant={focusTask.priority === 'high' ? 'destructive' : focusTask.priority === 'medium' ? 'default' : 'secondary'} className="text-xs">
                       {focusTask.priority === 'high' ? '🔴 Высокий приоритет' : focusTask.priority === 'medium' ? '🟡 Средний' : '🟢 Низкий'}
                     </Badge>
-                    <p className="font-semibold text-lg leading-snug break-words line-clamp-3">{focusTask.title}</p>
-                    {focusTask.description && <p className="text-sm text-muted-foreground line-clamp-2">{focusTask.description}</p>}
+                    <p className="font-semibold text-lg leading-snug break-all line-clamp-3">{focusTask.title}</p>
+                    {focusTask.description && <p className="text-sm text-muted-foreground line-clamp-2 break-all">{focusTask.description}</p>}
                     {focusTask.due_date && (
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" />{format(parseISO(focusTask.due_date), "d MMMM", { locale: ru })}
@@ -550,7 +550,7 @@ export default function Dashboard() {
                   <input type="checkbox" checked={task.completed || false}
                     onChange={e => { e.stopPropagation(); toggleTask(task.id); }}
                     className="h-4 w-4 cursor-pointer flex-shrink-0" />
-                  <p className={cn("text-sm flex-1 truncate", task.completed && "line-through text-muted-foreground")}>{task.title}</p>
+                  <p className={cn("text-sm flex-1 min-w-0 truncate", task.completed && "line-through text-muted-foreground")}>{task.title}</p>
                   <Badge variant={task.priority === "high" ? "destructive" : task.priority === "medium" ? "default" : "secondary"} className="text-xs flex-shrink-0 px-1.5">
                     {task.priority === "high" ? "!" : task.priority === "medium" ? "•" : "○"}
                   </Badge>
@@ -620,7 +620,7 @@ export default function Dashboard() {
               ) : habitProgress.slice(0, 5).map(habit => (
                 <div key={habit.id} className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium truncate flex-1 mr-2">{habit.name}</p>
+                    <p className="text-sm font-medium truncate flex-1 min-w-0 mr-2">{habit.name}</p>
                     <span className="text-xs text-muted-foreground flex-shrink-0 flex items-center gap-1">
                       <Flame className="h-3 w-3 text-orange-400" />{habit.done}/7
                     </span>
@@ -658,7 +658,7 @@ export default function Dashboard() {
                         <span className="text-2xl flex-shrink-0">{emoji}</span>
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-sm truncate">{note.title}</p>
-                          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
+                          <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed break-all">
                             {note.content?.replace(/^.+\n/, "").replace(/[#\-\[\]⚡💡🔲📖🔍📕🌅🎯✈️💪🍳🗣️📋📞📊]/g, "").trim() || "Нет содержания"}
                           </p>
                           <p className="text-xs text-muted-foreground/60 mt-2">
@@ -765,9 +765,9 @@ export default function Dashboard() {
               </span>
             </span>
             <span className="text-muted-foreground/30 select-none">·</span>
-            <span className="flex items-center gap-1 text-muted-foreground">
+            <span className="flex items-center gap-1 text-muted-foreground min-w-0 max-w-[200px]">
               <Calendar className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
-              <span>
+              <span className="truncate">
                 {nextTodayEvent
                   ? `${nextTodayEvent.title} в ${nextTodayEvent.time}`
                   : todayEventsList.length > 0
@@ -796,7 +796,7 @@ export default function Dashboard() {
                 <div key={task.id} className="flex items-center gap-2 text-sm">
                   <div className={cn("w-3.5 h-3.5 rounded-full border flex-shrink-0",
                     task.completed ? "bg-green-500 border-green-500" : "border-muted-foreground/40")} />
-                  <span className={cn("truncate", task.completed && "line-through text-muted-foreground")}>{task.title}</span>
+                  <span className={cn("flex-1 min-w-0 truncate", task.completed && "line-through text-muted-foreground")}>{task.title}</span>
                 </div>
               ))}
               {todayTasks.length > 4 && <p className="text-xs text-muted-foreground">+{todayTasks.length - 4} ещё</p>}
@@ -809,7 +809,7 @@ export default function Dashboard() {
               ) : todayEventsList.slice(0, 3).map(event => (
                 <div key={event.id} className="flex items-start gap-2 text-sm">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0 mt-1.5" />
-                  <span className="truncate">
+                  <span className="flex-1 min-w-0 truncate">
                     {event.title}
                     {event.time && <span className="text-muted-foreground"> · {event.time}</span>}
                   </span>
@@ -827,7 +827,7 @@ export default function Dashboard() {
                   <div key={habit.id} className="flex items-center gap-2 text-sm">
                     <div className={cn("w-3.5 h-3.5 rounded-full border flex-shrink-0",
                       done ? "bg-green-500 border-green-500" : "border-muted-foreground/40")} />
-                    <span className={cn("truncate", done && "text-muted-foreground")}>{habit.name}</span>
+                    <span className={cn("flex-1 min-w-0 truncate", done && "text-muted-foreground")}>{habit.name}</span>
                     {done && <CheckIcon className="h-3 w-3 text-green-500 flex-shrink-0" />}
                   </div>
                 );
@@ -913,7 +913,7 @@ export default function Dashboard() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="deadline">Дедлайн</Label>
-              <Input id="deadline" name="deadline" type="date" defaultValue={format(today, 'yyyy-MM-dd')} />
+              <Input id="deadline" name="deadline" type="date" defaultValue={format(today, 'yyyy-MM-dd')} min={todayStr} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Описание</Label>
@@ -965,10 +965,7 @@ export default function Dashboard() {
             <div className="space-y-2">
               <Label>Теги</Label>
               <TagInput
-                entityType="note"
-                entityId="temp"
                 selectedTags={newNoteTags}
-                isNewEntity
                 onTagsChange={setNewNoteTags}
               />
             </div>
@@ -998,7 +995,7 @@ export default function Dashboard() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="date">Дата</Label>
-              <Input id="date" name="date" type="date" defaultValue={format(today, 'yyyy-MM-dd')} required />
+              <Input id="date" name="date" type="date" defaultValue={format(today, 'yyyy-MM-dd')} min={todayStr} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="time">Время</Label>
@@ -1014,40 +1011,61 @@ export default function Dashboard() {
       </Dialog>
 
       <Dialog open={!!selectedTask} onOpenChange={() => setSelectedTask(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{selectedTask?.title}</DialogTitle></DialogHeader>
-          <div className="space-y-3 text-sm">
+        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader><DialogTitle className="break-all pr-6">{selectedTask?.title}</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm min-w-0">
             <div><Label>Приоритет</Label><p className="mt-1">{selectedTask?.priority === "high" ? "Высокий" : selectedTask?.priority === "medium" ? "Средний" : "Низкий"}</p></div>
             {selectedTask?.due_date && <div><Label>Дедлайн</Label><p className="mt-1">{format(parseISO(selectedTask.due_date), "dd MMMM yyyy", { locale: ru })}</p></div>}
-            <div><Label>Описание</Label><p className="mt-1 text-muted-foreground">{selectedTask?.description || "Нет описания"}</p></div>
-            <div><Label>Статус</Label><p className="mt-1">{selectedTask?.completed ? "✓ Выполнена" : "В работе"}</p></div>
+            <div><Label>Описание</Label><p className="mt-1 text-muted-foreground whitespace-pre-wrap break-all">{selectedTask?.description || "Нет описания"}</p></div>
+            <div>
+              <Label>Статус</Label>
+              <div className="flex items-center justify-between mt-1">
+                <p>{selectedTask?.completed ? "✓ Выполнена" : "В работе"}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!selectedTask) return;
+                    toggleTask(selectedTask.id);
+                    setSelectedTask({ ...selectedTask, completed: !selectedTask.completed });
+                  }}
+                >
+                  {selectedTask?.completed ? (
+                    <><Circle className="h-3.5 w-3.5 mr-1.5" />Отменить выполнение</>
+                  ) : (
+                    <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Отметить выполненной</>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{selectedEvent?.title}</DialogTitle></DialogHeader>
-          <div className="space-y-3 text-sm">
+        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader><DialogTitle className="break-all pr-6">{selectedEvent?.title}</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm min-w-0">
             <div><Label>Дата</Label><p className="mt-1">{selectedEvent?.date ? format(parseISO(selectedEvent.date), "dd MMMM yyyy", { locale: ru }) : "—"}</p></div>
             {selectedEvent?.time && <div><Label>Время</Label><p className="mt-1">{selectedEvent.time}{selectedEvent.end_time ? ` — ${selectedEvent.end_time}` : ""}</p></div>}
             {selectedEvent?.type && <div><Label>Тип</Label><p className="mt-1">{selectedEvent.type === "meeting" ? "Встреча" : selectedEvent.type === "reminder" ? "Напоминание" : "Заметка"}</p></div>}
             {selectedEvent?.source && selectedEvent.source !== "manual" && <div><Label>Источник</Label><p className="mt-1">{selectedEvent.source === "google" ? "Google Calendar" : "Яндекс Календарь"}</p></div>}
-            {selectedEvent?.location && <div><Label>Место</Label><p className="mt-1">{selectedEvent.location}</p></div>}
-            {selectedEvent?.description && <div><Label>Описание</Label><p className="mt-1 text-muted-foreground whitespace-pre-wrap">{selectedEvent.description}</p></div>}
+            {selectedEvent?.location && <div><Label>Место</Label><p className="mt-1 break-all">{selectedEvent.location}</p></div>}
+            {selectedEvent?.description && <div><Label>Описание</Label><p className="mt-1 text-muted-foreground whitespace-pre-wrap break-all">{selectedEvent.description}</p></div>}
           </div>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!selectedNote} onOpenChange={() => setSelectedNote(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{selectedNote?.title}</DialogTitle></DialogHeader>
-          <div className="space-y-3 text-sm">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader><DialogTitle className="break-all pr-6">{selectedNote?.title}</DialogTitle></DialogHeader>
+          <div className="space-y-3 text-sm min-w-0">
             {selectedNote?.updated_at && (
               <p className="text-xs text-muted-foreground">Обновлено: {format(new Date(selectedNote.updated_at), "d MMMM yyyy, HH:mm", { locale: ru })}</p>
             )}
             <div className="max-h-80 overflow-y-auto">
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{selectedNote?.content || "Нет содержания"}</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all leading-relaxed">{selectedNote?.content || "Нет содержания"}</p>
             </div>
           </div>
         </DialogContent>

@@ -389,24 +389,15 @@ async function handleDialog(
             const m = text.match(/(\d{1,2}):(\d{2})/);
             if (m) data.time = text;
         }
-        await setSession(userId, peerId, "awaiting_event_tags", data);
-        await sendVkMessage(peerId, "Введите теги через запятую (или '-'):", cancelKeyboard);
-        return true;
-    }
-
-    if (state === "awaiting_event_tags") {
-        if (text !== "-") data.tags = text;
-        const { data: newEvent, error } = await supabase
+        const { error } = await supabase
             .from("calendar_events")
             .insert({
                 title: data.title, description: data.description || null, user_id: userId,
                 date: data.date, time: data.time || null, source: "manual"
-            })
-            .select("id").single();
+            });
         if (error) {
             await sendVkMessage(peerId, `❌ Ошибка: ${error.message}`, mainKeyboard);
         } else {
-            if (data.tags) await attachTags("calendar_event", newEvent.id, data.tags, userId);
             await sendVkMessage(peerId, `✅ Событие «${data.title}» создано на ${data.date}!`, mainKeyboard);
         }
         await clearSession(userId);

@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   format, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
-  eachDayOfInterval, addDays, parseISO,
+  eachDayOfInterval, addDays,
 } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
@@ -33,6 +33,8 @@ export function PlanVsFactChart() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["planVsFact", period],
+    staleTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
@@ -68,14 +70,7 @@ export function PlanVsFactChart() {
       if (!tasks) return null;
 
       const planTasks = tasks.filter(t => t.due_date && t.due_date >= startStr && t.due_date <= endStr);
-      const factTasks = tasks.filter(t => {
-        if (!t.completed || !t.completed_at) return false;
-        const ds = format(parseISO(t.completed_at), "yyyy-MM-dd");
-        return ds >= startStr && ds <= endStr;
-      });
-
-      const getFactDs = (t: typeof factTasks[0]) =>
-        t.completed_at ? format(parseISO(t.completed_at), "yyyy-MM-dd") : "";
+      const factTasks = planTasks.filter(t => t.completed);
 
       let chartData: ChartPoint[];
 
@@ -85,7 +80,7 @@ export function PlanVsFactChart() {
           return {
             label: format(day, "EEE", { locale: ru }),
             план: planTasks.filter(t => t.due_date === ds).length,
-            факт: factTasks.filter(t => getFactDs(t) === ds).length,
+            факт: factTasks.filter(t => t.due_date === ds).length,
           };
         });
       } else {
@@ -101,10 +96,7 @@ export function PlanVsFactChart() {
           chartData.push({
             label: `Нед. ${weekNum}`,
             план: planTasks.filter(t => t.due_date && t.due_date >= wStartStr && t.due_date <= wEndStr).length,
-            факт: factTasks.filter(t => {
-              const ds = getFactDs(t);
-              return ds >= wStartStr && ds <= wEndStr;
-            }).length,
+            факт: factTasks.filter(t => t.due_date && t.due_date >= wStartStr && t.due_date <= wEndStr).length,
           });
           weekStart = addDays(weekStart, 7);
           weekNum++;

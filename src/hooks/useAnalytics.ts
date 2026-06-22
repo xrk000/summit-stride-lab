@@ -6,6 +6,8 @@ import { ru } from "date-fns/locale";
 export const useAnalytics = () => {
   return useQuery({
     queryKey: ["analytics"],
+    staleTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;

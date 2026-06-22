@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  CheckCircle2, Calendar, FileText, Target, Upload, Loader2,
+  CheckCircle2, Calendar, FileText, Target, Loader2,
   Settings, BarChart2, User, Plug, TrendingUp, CheckCheck, Flame,
   Tag, Pencil, Trash2, Plus, X, Check
 } from "lucide-react";
@@ -14,10 +14,12 @@ import { useUserStats } from "@/hooks/useUserStats";
 import { useActivityData } from "@/hooks/useActivityData";
 import { useHabits } from "@/hooks/useHabits";
 import { useTags } from "@/hooks/useTags";
+import { getAvatarUrl } from "@/lib/avatars";
+import { AvatarPicker } from "@/components/AvatarPicker";
 import GoogleCalendarCard from "@/components/GoogleCalendarCard";
 import YandexCalendarCard from "@/components/YandexCalendarCard";
 import VkConnect from "@/components/VkConnect";
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { format, subDays } from "date-fns";
 import { isHabitDueOnDate } from "@/lib/habitUtils";
 import { ru } from "date-fns/locale";
@@ -30,7 +32,7 @@ import { cn } from "@/lib/utils";
 type TabKey = "overview" | "activity" | "integrations" | "settings" | "tags";
 
 const Profile = () => {
-  const { profile, updateProfile, uploadAvatar } = useProfile();
+  const { profile, updateProfile, setAvatar } = useProfile();
   const { data: stats, isLoading: statsLoading } = useUserStats();
   const { data: weekActivity } = useActivityData(7);
   const { data: monthActivity } = useActivityData(30);
@@ -54,8 +56,6 @@ const Profile = () => {
     setEditingTagId(null); setEditingTagName("");
   };
   const handleDeleteTag = (id: string) => { deleteTag(id); setDeletingTagId(null); };
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (profile) { setUsername(profile.username || ""); setTimezone(profile.timezone || "GMT+3"); }
@@ -104,24 +104,14 @@ const Profile = () => {
 
         <div className="relative flex items-center gap-6">
           {/* Аватар */}
-          <div className="relative group flex-shrink-0 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+          <div className="relative flex-shrink-0">
             <Avatar className="h-24 w-24 ring-4 ring-white/20">
-              <AvatarImage src={profile?.avatar_url || ""} />
+              <AvatarImage src={getAvatarUrl(profile?.avatar_id) || ""} />
               <AvatarFallback className="text-3xl bg-primary/30 text-white">
                 {displayName[0]?.toUpperCase() || "U"}
               </AvatarFallback>
             </Avatar>
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-              {uploadAvatar.isPending
-                ? <Loader2 className="h-6 w-6 text-white animate-spin" />
-                : <Upload className="h-6 w-6 text-white" />}
-            </div>
             <div className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded-full bg-green-400 border-2 border-slate-900" />
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
-              onChange={e => {
-                const f = e.target.files?.[0];
-                if (f) { uploadAvatar.mutate(f); if (fileInputRef.current) fileInputRef.current.value = ""; }
-              }} />
           </div>
 
           {/* Имя и бейджи */}
@@ -392,8 +382,8 @@ const Profile = () => {
               <User className="h-5 w-5 text-primary" />Личные данные
             </h3>
             <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
-              <Avatar className="h-14 w-14 flex-shrink-0 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                <AvatarImage src={profile?.avatar_url || ""} />
+              <Avatar className="h-14 w-14 flex-shrink-0">
+                <AvatarImage src={getAvatarUrl(profile?.avatar_id) || ""} />
                 <AvatarFallback className="text-lg bg-primary/10 text-primary">
                   {displayName[0]?.toUpperCase() || "U"}
                 </AvatarFallback>
@@ -401,9 +391,12 @@ const Profile = () => {
               <div className="min-w-0 flex-1">
                 <p className="font-semibold truncate">{displayName}</p>
                 <p className="text-xs text-muted-foreground truncate">{(profile as any)?.email || ""}</p>
-                <Button size="sm" variant="outline" className="mt-2 h-7 text-xs" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="h-3 w-3 mr-1" />Сменить фото
-                </Button>
+              </div>
+            </div>
+            <div>
+              <Label className="text-sm">Аватар</Label>
+              <div className="mt-2">
+                <AvatarPicker selectedId={profile?.avatar_id} onSelect={setAvatar} />
               </div>
             </div>
             <div className="space-y-3">

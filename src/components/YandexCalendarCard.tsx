@@ -174,16 +174,8 @@ export default function YandexCalendarCard() {
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
-          <p className="text-xs text-muted-foreground">
-            Или загрузите .ics файл вручную
-          </p>
-          <input ref={fileInputRef} type="file" accept=".ics" className="hidden" onChange={handleFile} />
-          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isImporting}>
-            <Upload className={`h-4 w-4 mr-1.5 ${isImporting ? "animate-pulse" : ""}`} />
-            {isImporting ? "Импорт..." : "Загрузить .ics"}
-          </Button>
-        </div>
+        {/* Запасной способ: загрузка файла — скрыт из UI, логика импорта (parseIcs/handleFile) сохранена для повторного включения */}
+        <input ref={fileInputRef} type="file" accept=".ics" className="hidden" onChange={handleFile} />
       </CardContent>
     </Card>
   );

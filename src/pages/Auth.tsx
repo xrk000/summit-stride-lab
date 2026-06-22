@@ -10,6 +10,18 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const SIGN_IN_TIMEOUT_MS = 10_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Превышено время ожидания ответа сервера")), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
 const FEATURES = [
   { icon: CheckSquare, color: "text-blue-500", label: "Задачи" },
   { icon: Flame, color: "text-orange-500", label: "Привычки" },
@@ -107,8 +119,13 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      let result;
+      try {
+        result = await withTimeout(supabase.auth.signInWithPassword({ email, password }), SIGN_IN_TIMEOUT_MS);
+      } catch {
+        result = await withTimeout(supabase.auth.signInWithPassword({ email, password }), SIGN_IN_TIMEOUT_MS);
+      }
+      if (result.error) throw result.error;
       toast({ title: "Добро пожаловать!", description: "Вы успешно вошли в систему." });
     } catch (error: any) {
       toast({ title: "Ошибка входа", description: error.message, variant: "destructive" });
